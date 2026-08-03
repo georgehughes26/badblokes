@@ -45,3 +45,6 @@ next-env.d.ts
 /prisma/*.db
 /prisma/*.db-journal
 /uploads
+
+# local agent/tooling state, not part of the app
+/.claude/

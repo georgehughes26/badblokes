@@ -79,3 +79,9 @@ export function isWithinWindow(now: Date, opensAt: Date, closesAt: Date): boolea
 export function isBefore(now: Date, deadline: Date): boolean {
   return now.getTime() < deadline.getTime();
 }
+
+/** Is this instant exactly 15:00 in Europe/London? Used to filter imported fixtures down to the pickable Saturday 3pm slot. */
+export function isThreePmLondon(date: Date): boolean {
+  const dt = DateTime.fromJSDate(date).setZone(LONDON_ZONE);
+  return dt.hour === 15 && dt.minute === 0;
+}

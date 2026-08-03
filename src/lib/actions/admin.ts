@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/current-user";
 import { logAudit } from "@/lib/audit";
-import { computeGameweekDeadlines, parseLondonDatetimeLocal } from "@/lib/time";
+import { computeGameweekDeadlines, isThreePmLondon, parseLondonDatetimeLocal } from "@/lib/time";
+import { OpenFootballProvider } from "@/lib/football/provider";
+import { normalizeTeamName } from "@/lib/football/team-matching";
 import {
   createFixtureSchema,
   createGameweekSchema,
@@ -292,4 +294,131 @@ export async function deleteFixture(formData: FormData) {
   });
 
   revalidatePath(`/admin/gameweeks/${gameweekId}`);
+}
+
+/**
+ * Pulls team lists for Premier League through League Two from
+ * openfootball (free, no key) and upserts them into our Team table,
+ * matching against existing teams by normalised name so this doesn't
+ * create near-duplicates ("Chelsea" vs "Chelsea FC"). National League and
+ * anything else stays on the manual "Add team" form above — no free
+ * source covers it reliably.
+ */
+export async function syncTeamsFromOpenFootball() {
+  const admin = await requireAdmin();
+
+  let teams;
+  try {
+    teams = await new OpenFootballProvider().listTeams();
+  } catch {
+    fail("/admin/teams", "Couldn't reach openfootball — try again in a bit");
+  }
+
+  const existing = await prisma.team.findMany();
+  const byNormalized = new Map(existing.map((t) => [normalizeTeamName(t.name), t]));
+
+  let created = 0;
+  let updated = 0;
+  for (const team of teams) {
+    const key = normalizeTeamName(team.name);
+    const match = byNormalized.get(key);
+    if (match) {
+      if (match.division !== team.division) {
+        await prisma.team.update({ where: { id: match.id }, data: { division: team.division } });
+        updated += 1;
+      }
+      continue;
+    }
+    const createdTeam = await prisma.team.create({
+      data: {
+        name: team.name,
+        shortName: team.name.slice(0, 3).toUpperCase(),
+        division: team.division,
+      },
+    });
+    byNormalized.set(key, createdTeam);
+    created += 1;
+  }
+
+  await logAudit({
+    actorId: admin.id,
+    action: "SYNC",
+    entityType: "Team",
+    entityId: "openfootball",
+    after: { created, updated },
+  });
+
+  revalidatePath("/admin/teams");
+  redirect(`/admin/teams?success=${encodeURIComponent(`Synced from openfootball: ${created} added, ${updated} updated`)}`);
+}
+
+/**
+ * Pulls that gameweek's real Saturday 3pm fixtures (the only kind players
+ * can pick) from openfootball and adds any that aren't already there.
+ * Re-running is safe — it skips fixtures already present and never
+ * touches ones that already have picks against them.
+ */
+export async function importFixturesFromOpenFootball(formData: FormData) {
+  const admin = await requireAdmin();
+  const gameweekId = String(formData.get("gameweekId") ?? "");
+
+  const gameweek = await prisma.gameweek.findUnique({ where: { id: gameweekId }, include: { fixtures: true } });
+  if (!gameweek) fail("/admin/gameweeks", "Gameweek not found");
+
+  let fixtures;
+  try {
+    fixtures = await new OpenFootballProvider().listFixturesOnDate(gameweek.slipDeadlineAt);
+  } catch {
+    fail(`/admin/gameweeks/${gameweekId}`, "Couldn't reach openfootball — try again in a bit");
+  }
+
+  const threePmOnly = fixtures.filter((f) => f.kickoffAt && isThreePmLondon(f.kickoffAt));
+
+  const allTeams = await prisma.team.findMany();
+  const byNormalized = new Map(allTeams.map((t) => [normalizeTeamName(t.name), t]));
+  const existingPairs = new Set(gameweek.fixtures.map((f) => `${f.homeTeamId}:${f.awayTeamId}`));
+
+  async function findOrCreateTeam(name: string, division: string) {
+    const key = normalizeTeamName(name);
+    const existingTeam = byNormalized.get(key);
+    if (existingTeam) return existingTeam;
+    const created = await prisma.team.create({
+      data: { name, shortName: name.slice(0, 3).toUpperCase(), division },
+    });
+    byNormalized.set(key, created);
+    return created;
+  }
+
+  let added = 0;
+  for (const fx of threePmOnly) {
+    const home = await findOrCreateTeam(fx.homeTeam, fx.division);
+    const away = await findOrCreateTeam(fx.awayTeam, fx.division);
+    const pairKey = `${home.id}:${away.id}`;
+    if (existingPairs.has(pairKey)) continue;
+
+    await prisma.fixture.create({
+      data: {
+        gameweekId,
+        homeTeamId: home.id,
+        awayTeamId: away.id,
+        kickoffAt: gameweek.slipDeadlineAt,
+        homeScore: fx.homeScore,
+        awayScore: fx.awayScore,
+        status: fx.homeScore !== null ? "FINISHED" : "SCHEDULED",
+      },
+    });
+    existingPairs.add(pairKey);
+    added += 1;
+  }
+
+  await logAudit({
+    actorId: admin.id,
+    action: "IMPORT",
+    entityType: "Gameweek",
+    entityId: gameweekId,
+    after: { added },
+  });
+
+  revalidatePath(`/admin/gameweeks/${gameweekId}`);
+  redirect(`/admin/gameweeks/${gameweekId}?success=${encodeURIComponent(`Imported ${added} fixture(s) from openfootball`)}`);
 }

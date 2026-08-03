@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -120,11 +121,14 @@ model Team {
   name      String  @unique
   shortName String
   crestUrl  String?
+  division  String? // e.g. "Premier League", "Championship" — null for manually-added teams
   active    Boolean @default(true)
 
   homeFixtures Fixture[] @relation("HomeTeam")
   awayFixtures Fixture[] @relation("AwayTeam")
   picks        Pick[]
+
+  @@index([division])
 }
 
 enum FixtureStatus {

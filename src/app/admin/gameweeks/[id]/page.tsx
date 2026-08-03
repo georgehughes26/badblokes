@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   createFixture,
   deleteFixture,
+  importFixturesFromOpenFootball,
   updateGameweekDeadlines,
   updateGameweekStatus,
 } from "@/lib/actions/admin";
@@ -116,7 +117,19 @@ export default async function AdminGameweekDetailPage({
       </section>
 
       <section className="card space-y-3">
-        <h2 className="text-sm font-semibold text-muted">Fixtures ({gameweek.fixtures.length})</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-muted">Fixtures ({gameweek.fixtures.length})</h2>
+          <form action={importFixturesFromOpenFootball}>
+            <input type="hidden" name="gameweekId" value={gameweek.id} />
+            <button type="submit" className="btn-secondary !px-3 !py-1.5 text-xs">
+              Import 3pm fixtures from openfootball
+            </button>
+          </form>
+        </div>
+        <p className="-mt-1 text-xs text-muted">
+          Pulls this gameweek&apos;s real Saturday 15:00 fixtures (tiers 1-4) and adds any that aren&apos;t already
+          here — safe to click more than once.
+        </p>
         <form action={createFixture} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <input type="hidden" name="gameweekId" value={gameweek.id} />
           <div>

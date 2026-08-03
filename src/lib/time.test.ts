@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeGameweekDeadlines,
   isBefore,
+  isThreePmLondon,
   isWithinWindow,
   londonWallTimeToUtc,
   parseLondonDatetimeLocal,
@@ -77,6 +78,21 @@ describe("datetime-local round trip (admin deadline-override form)", () => {
     const original = "2026-08-08T15:00";
     const utc = parseLondonDatetimeLocal(original);
     expect(toLondonDatetimeLocal(utc)).toBe(original);
+  });
+});
+
+describe("isThreePmLondon", () => {
+  it("is true for a 15:00 BST kick-off", () => {
+    expect(isThreePmLondon(londonWallTimeToUtc(2026, 8, 8, 15, 0))).toBe(true);
+  });
+
+  it("is true for a 15:00 GMT kick-off", () => {
+    expect(isThreePmLondon(londonWallTimeToUtc(2026, 12, 5, 15, 0))).toBe(true);
+  });
+
+  it("is false for a 12:30 or 17:30 kick-off", () => {
+    expect(isThreePmLondon(londonWallTimeToUtc(2026, 8, 8, 12, 30))).toBe(false);
+    expect(isThreePmLondon(londonWallTimeToUtc(2026, 8, 8, 17, 30))).toBe(false);
   });
 });
 
