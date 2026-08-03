@@ -38,15 +38,45 @@ export default async function HomePage() {
   if (context.alreadyPicked && context.myPick) {
     const pick = context.myPick;
     const picksSoFar = getPicksReveal(context.gameweek);
+    const slipDeadlinePassed = context.slipDeadlinePassed;
+    const slipSubmitted = Boolean(pick.betSlip?.submittedAt);
     return (
       <div className="space-y-4">
         {heading}
+        {!slipDeadlinePassed && (
+          <div className="card py-6">
+            <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Picks lock in" />
+          </div>
+        )}
         <div className="card flex flex-col items-center gap-3 py-10 text-center">
           <p className="pill-green">You&apos;re in for this week</p>
           <TeamBadge name={pick.team.name} shortName={pick.team.shortName} crestUrl={pick.team.crestUrl} size="lg" />
           <p className="font-display text-3xl font-bold">You&apos;ve picked {pick.team.name}</p>
           {pick.isJoker && <p className="pill-amber">Joker played</p>}
         </div>
+        {pick.betSlip && (
+          <div className="card flex flex-col items-center gap-3 py-6 text-center">
+            {slipSubmitted ? (
+              <>
+                <p className="pill-green">Bet slip submitted</p>
+                {!slipDeadlinePassed && (
+                  <Link href={`/slip/${pick.betSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
+                    Update your bet slip
+                  </Link>
+                )}
+              </>
+            ) : slipDeadlinePassed ? (
+              <p className="pill-red">Slip deadline passed — no slip submitted</p>
+            ) : (
+              <>
+                <p className="text-sm text-muted">Don&apos;t forget to log proof of your actual bet.</p>
+                <Link href={`/slip/${pick.betSlip.token}`} className="btn-primary">
+                  Submit your bet slip
+                </Link>
+              </>
+            )}
+          </div>
+        )}
         <PicksReveal picks={picksSoFar} currentUserId={user.id} />
       </div>
     );

@@ -27,6 +27,7 @@ export default async function AdminResultsEntryPage({ params }: { params: Promis
     teamName: pick.team.name,
     isJoker: pick.isJoker,
     slipSubmitted: Boolean(pick.betSlip?.submittedAt),
+    slipUrl: pick.betSlip?.externalUrl ?? null,
     won: pick.resultWon ?? false,
     wentTwoUp: pick.resultWentTwoUp ?? false,
     shortOdds: pick.resultShortOdds ?? false,

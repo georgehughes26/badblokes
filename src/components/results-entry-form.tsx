@@ -11,6 +11,7 @@ export interface ResultsEntryPick {
   teamName: string;
   isJoker: boolean;
   slipSubmitted: boolean;
+  slipUrl: string | null;
   won: boolean;
   wentTwoUp: boolean;
   shortOdds: boolean;
@@ -120,6 +121,16 @@ export function ResultsEntryForm({
                   <p className="text-sm font-semibold">
                     {pick.userName} → {pick.teamName} {pick.isJoker && <span className="pill-amber ml-1">Joker</span>}
                   </p>
+                  {pick.slipUrl && (
+                    <a
+                      href={pick.slipUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      View slip ↗
+                    </a>
+                  )}
                 </div>
                 <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
                   <input

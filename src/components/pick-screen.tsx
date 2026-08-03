@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { TeamBadge } from "@/components/team-badge";
 import type { TeamOption } from "@/lib/picks";
 
@@ -23,6 +24,7 @@ export function PickScreen({ gameweekId, teamOptions, jokerAvailable, jokerHalfL
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lockedIn, setLockedIn] = useState(false);
+  const [slipToken, setSlipToken] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredTeams = useMemo(() => {
@@ -68,6 +70,7 @@ export function PickScreen({ gameweekId, teamOptions, jokerAvailable, jokerHalfL
       return;
     }
     setLockedIn(true);
+    setSlipToken(data.slipToken ?? null);
     // Swaps in the server's "already picked" view — including the rest of
     // the group's picks — once it re-renders with this pick included.
     router.refresh();
@@ -76,11 +79,21 @@ export function PickScreen({ gameweekId, teamOptions, jokerAvailable, jokerHalfL
   if (lockedIn) {
     const team = selectedTeam;
     return (
-      <div className="card flex flex-col items-center gap-3 py-10 text-center">
-        <p className="pill-green">Pick locked in</p>
-        {team && <TeamBadge name={team.name} shortName={team.shortName} crestUrl={team.crestUrl} size="lg" />}
-        {team && <p className="font-display text-3xl font-bold">{team.name}</p>}
-        {isJoker && <p className="pill-amber">Joker played</p>}
+      <div className="space-y-4">
+        <div className="card flex flex-col items-center gap-3 py-10 text-center">
+          <p className="pill-green">Pick locked in</p>
+          {team && <TeamBadge name={team.name} shortName={team.shortName} crestUrl={team.crestUrl} size="lg" />}
+          {team && <p className="font-display text-3xl font-bold">{team.name}</p>}
+          {isJoker && <p className="pill-amber">Joker played</p>}
+        </div>
+        {slipToken && (
+          <div className="card flex flex-col items-center gap-3 py-6 text-center">
+            <p className="text-sm text-muted">Don&apos;t forget to log proof of your actual bet.</p>
+            <Link href={`/slip/${slipToken}`} className="btn-primary">
+              Submit your bet slip
+            </Link>
+          </div>
+        )}
       </div>
     );
   }

@@ -18,7 +18,7 @@ function loadGameweek(gameweekId: string) {
     where: { id: gameweekId },
     include: {
       season: true,
-      picks: { include: { user: true, team: true } },
+      picks: { include: { user: true, team: true, betSlip: true } },
     },
   });
 }
@@ -63,6 +63,8 @@ export interface PickContext {
   windowOpen: boolean;
   /** Has picksOpenAt already passed? Lets the UI tell "still upcoming" apart from "stuck waiting on a manual status flip". */
   picksOpenAtPassed: boolean;
+  /** Has slipDeadlineAt already passed? Gates the "submit your bet slip" CTA and countdown on the already-picked view. */
+  slipDeadlinePassed: boolean;
 }
 
 /** The gameweek a player should be looking at right now: the earliest OPEN one. */
@@ -184,5 +186,6 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
     jokerAvailability,
     windowOpen: gameweek.status === "OPEN" && isWithinWindow(now, gameweek.picksOpenAt, gameweek.pickDeadlineAt),
     picksOpenAtPassed: now.getTime() >= gameweek.picksOpenAt.getTime(),
+    slipDeadlinePassed: now.getTime() >= gameweek.slipDeadlineAt.getTime(),
   };
 }

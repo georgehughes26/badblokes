@@ -5,7 +5,7 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 // /login if there's no session cookie at all. This is a coarse, thin check
 // (no DB access here) — the authoritative check (session validity, role)
 // happens server-side on each page/route via requireUser/requireAdmin.
-const PUBLIC_PREFIXES = ["/login", "/register", "/api/auth", "/slip"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/api/auth", "/slip", "/api/slips"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
