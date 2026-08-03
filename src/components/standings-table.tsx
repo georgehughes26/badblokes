@@ -13,17 +13,17 @@ export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; c
 
   return (
     <div className="card overflow-x-auto p-0">
-      <table className="w-full min-w-[420px] text-sm">
+      <table className="w-full text-sm sm:min-w-[560px]">
         <thead>
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-            <th className="sticky left-0 z-10 w-12 bg-surface px-4 py-3">#</th>
-            <th className="sticky left-12 z-10 bg-surface px-2 py-3">Player</th>
-            <th className="px-3 py-3 text-right">P</th>
-            <th className="px-3 py-3 text-right">W</th>
-            <th className="px-3 py-3 text-right">L</th>
+            <th className="sticky left-0 z-10 w-10 bg-surface px-3 py-3">#</th>
+            <th className="sticky left-10 z-10 bg-surface px-2 py-3">Player</th>
+            <th className="hidden px-3 py-3 text-right sm:table-cell">P</th>
+            <th className="hidden px-3 py-3 text-right sm:table-cell">W</th>
+            <th className="hidden px-3 py-3 text-right sm:table-cell">L</th>
             <th className="px-3 py-3 text-right">Pts</th>
-            <th className="px-3 py-3 text-right">Fines</th>
-            <th className="px-4 py-3 text-right">Joker</th>
+            <th className="px-3 py-3 text-right sm:px-4">Fines</th>
+            <th className="hidden px-4 py-3 text-right sm:table-cell">Joker</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -38,19 +38,24 @@ export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; c
             const rankColor = isBottom ? "text-danger" : (MEDAL_CLASS[i] ?? "text-muted");
             return (
               <tr key={row.userId} className={rowBg}>
-                <td className={`sticky left-0 z-10 w-12 px-4 py-3 font-display text-base font-semibold ${rowBg} ${rankColor}`}>
+                <td className={`sticky left-0 z-10 w-10 px-3 py-3 font-display text-base font-semibold ${rowBg} ${rankColor}`}>
                   {i + 1}
                 </td>
-                <td className={`sticky left-12 z-10 px-2 py-3 font-medium ${rowBg}`}>
-                  {row.name}
-                  {isYou && <span className="pill-green ml-2">You</span>}
+                <td className={`sticky left-10 z-10 px-2 py-3 font-medium ${rowBg}`}>
+                  <span className="flex flex-wrap items-center gap-x-2">
+                    {row.name}
+                    {isYou && <span className="pill-green">You</span>}
+                  </span>
+                  <span className="block text-xs text-muted sm:hidden">
+                    {row.played}P · {row.won}W · {row.lost}L · Joker {row.jokersUsed}/2
+                  </span>
                 </td>
-                <td className="px-3 py-3 text-right text-muted">{row.played}</td>
-                <td className="px-3 py-3 text-right text-muted">{row.won}</td>
-                <td className="px-3 py-3 text-right text-muted">{row.lost}</td>
+                <td className="hidden px-3 py-3 text-right text-muted sm:table-cell">{row.played}</td>
+                <td className="hidden px-3 py-3 text-right text-muted sm:table-cell">{row.won}</td>
+                <td className="hidden px-3 py-3 text-right text-muted sm:table-cell">{row.lost}</td>
                 <td className="font-display px-3 py-3 text-right text-base font-bold">{row.points}</td>
-                <td className="px-3 py-3 text-right text-danger">{row.fines > 0 ? `£${row.fines}` : "—"}</td>
-                <td className="px-4 py-3 text-right text-muted">{row.jokersUsed}/2</td>
+                <td className="px-3 py-3 text-right text-danger sm:px-4">{row.fines > 0 ? `£${row.fines}` : "—"}</td>
+                <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">{row.jokersUsed}/2</td>
               </tr>
             );
           })}
