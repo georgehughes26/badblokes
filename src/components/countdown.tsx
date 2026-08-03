@@ -24,10 +24,17 @@ export function Countdown({ target, label }: { target: string; label: string }) 
     return () => clearInterval(interval);
   }, [targetMs]);
 
+  const urgent = remaining > 0 && remaining < 60 * 60 * 1000;
+
   return (
     <div className="text-center">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
-      <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-accent sm:text-5xl">
+      <p
+        className={[
+          "font-display mt-1 text-5xl font-bold tabular-nums sm:text-6xl",
+          urgent ? "text-warn" : "text-accent",
+        ].join(" ")}
+      >
         {formatRemaining(remaining)}
       </p>
     </div>

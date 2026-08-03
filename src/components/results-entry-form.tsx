@@ -121,7 +121,7 @@ export function ResultsEntryForm({
                     {pick.oddsFractional} ({pick.oddsDecimal.toFixed(2)})
                   </p>
                 </div>
-                <label className="flex items-center gap-1.5 text-xs">
+                <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-accent"
@@ -130,7 +130,7 @@ export function ResultsEntryForm({
                   />
                   Won
                 </label>
-                <label className="flex items-center gap-1.5 text-xs">
+                <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-accent"
@@ -139,7 +139,7 @@ export function ResultsEntryForm({
                   />
                   Went 2 up (EP)
                 </label>
-                <label className="flex items-center gap-1.5 text-xs">
+                <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-accent"

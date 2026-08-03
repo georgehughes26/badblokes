@@ -4,7 +4,7 @@ import { computeStandings, getRecentSettledGameweekIds } from "@/lib/standings";
 import { TableSwitcher } from "@/components/table-switcher";
 
 export default async function LeagueTablePage() {
-  await requireUser();
+  const user = await requireUser();
   const season = await prisma.season.findFirst({ where: { active: true } });
 
   if (!season) {
@@ -19,8 +19,8 @@ export default async function LeagueTablePage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-bold">{season.name}</h1>
-      <TableSwitcher season={seasonRows} gotm={gotmRows} />
+      <h1 className="font-display text-2xl font-bold">{season.name}</h1>
+      <TableSwitcher season={seasonRows} gotm={gotmRows} currentUserId={user.id} />
     </div>
   );
 }

@@ -19,12 +19,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="space-y-5">
       <div>
         <p className="pill-amber mb-2 w-fit">Admin</p>
-        <nav className="flex flex-wrap gap-1 border-b border-border pb-3 text-sm">
+        <nav className="flex flex-nowrap gap-1 overflow-x-auto border-b border-border pb-3 text-sm">
           {ADMIN_TABS.map((tab) => (
             <Link
               key={tab.href}
               href={tab.href}
-              className="rounded-lg px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
+              className="shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
             >
               {tab.label}
             </Link>

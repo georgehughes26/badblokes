@@ -1,16 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #05070d;
-  --surface: #10152a;
-  --surface-raised: #161c38;
-  --border: #232a4d;
-  --foreground: #eef1fb;
-  --muted: #8b93b8;
-  --accent: #4ade80;
-  --accent-strong: #22c55e;
-  --warn: #fbbf24;
-  --danger: #f87171;
+  --background: #060810;
+  --surface: #10131f;
+  --surface-raised: #171b2c;
+  --border: #252b44;
+  --foreground: #f4f6fc;
+  --muted: #8891b3;
+  --accent: #22c55e;
+  --accent-strong: #16a34a;
+  --warn: #f5a524;
+  --danger: #f8717a;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @theme inline {
@@ -24,36 +27,47 @@
   --color-accent-strong: var(--accent-strong);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-barlow);
+  --font-display: var(--font-barlow-condensed);
 }
 
 html {
   color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  min-height: 100dvh;
 }
 
 @layer components {
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
   .card {
     @apply rounded-2xl border border-border bg-surface p-4 sm:p-5;
+  }
+
+  .card-flat {
+    @apply rounded-2xl bg-surface-raised p-4 sm:p-5;
   }
 
   .btn-primary,
   .btn-secondary,
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100 disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply bg-accent text-black hover:bg-accent-strong;
+    @apply bg-accent text-black shadow-[0_1px_0_rgba(255,255,255,0.25)_inset] hover:bg-accent-strong;
   }
 
   .btn-secondary {
-    @apply border border-border bg-surface-raised text-foreground hover:border-accent/50;
+    @apply border border-border bg-surface-raised text-foreground hover:border-accent/50 hover:text-accent;
   }
 
   .btn-danger {
@@ -61,11 +75,11 @@ body {
   }
 
   .input {
-    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-3 text-base text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent sm:py-2.5 sm:text-sm;
   }
 
   .label {
-    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted;
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted;
   }
 
   .pill-green,
@@ -89,5 +103,29 @@ body {
 
   .pill-muted {
     @apply bg-white/5 text-muted;
+  }
+
+  /* Reserves space for the fixed mobile tab bar so content never sits under it. */
+  .pb-tabbar {
+    padding-bottom: calc(4.75rem + var(--safe-bottom));
+  }
+
+  .pt-safe {
+    padding-top: var(--safe-top);
+  }
+
+  .pb-safe {
+    padding-bottom: var(--safe-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

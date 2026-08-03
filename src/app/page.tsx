@@ -12,7 +12,7 @@ export default async function HomePage() {
   if (!gameweek) {
     return (
       <div className="card text-center">
-        <h1 className="text-lg font-bold">Alright, {user.name.split(" ")[0]}.</h1>
+        <h1 className="font-display text-2xl font-bold">Alright, {user.name.split(" ")[0]}.</h1>
         <p className="mt-2 text-sm text-muted">No gameweek is scheduled yet — check back soon.</p>
       </div>
     );
@@ -38,10 +38,10 @@ export default async function HomePage() {
     return (
       <div className="space-y-4">
         {heading}
-        <div className="card flex flex-col items-center gap-3 py-8 text-center">
+        <div className="card flex flex-col items-center gap-3 py-10 text-center">
           <p className="pill-green">You&apos;re in for this week</p>
           <TeamBadge name={pick.team.name} shortName={pick.team.shortName} crestUrl={pick.team.crestUrl} size="lg" />
-          <p className="text-xl font-bold">You&apos;ve picked {pick.team.name}</p>
+          <p className="font-display text-3xl font-bold">You&apos;ve picked {pick.team.name}</p>
           <p className="text-sm text-muted">
             Odds {pick.oddsFractional} ({pick.oddsDecimal.toFixed(2)})
           </p>
