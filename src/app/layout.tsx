@@ -37,7 +37,9 @@ export default function RootLayout({
     <html lang="en" className={`${barlow.variable} ${barlowCondensed.variable} h-full`}>
       <body className="flex min-h-dvh flex-col antialiased">
         <NavBar />
-        <main className="pb-tabbar mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:pb-6 sm:py-6">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-5 pb-[calc(4.75rem+var(--safe-bottom))] sm:pt-6 sm:pb-6">
+          {children}
+        </main>
         <MobileTabBar />
       </body>
     </html>

@@ -125,20 +125,19 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
   if (!gameweek) return null;
 
   const myPick = gameweek.picks.find((p) => p.userId === userId) ?? null;
-  const previousPickTeamId = await getPreviousGameweekPickTeamId(userId, gameweek.seasonId, gameweek.weekNumber);
-  const previousJokerHalves = await getPreviousJokerHalves(
-    userId,
-    gameweek.seasonId,
-    gameweek.season.jokerSplitDate,
-    gameweekId,
-  );
+  // None of these three depend on each other's results — run them together
+  // instead of paying three sequential cross-region round-trips.
+  const [previousPickTeamId, previousJokerHalves, teams] = await Promise.all([
+    getPreviousGameweekPickTeamId(userId, gameweek.seasonId, gameweek.weekNumber),
+    getPreviousJokerHalves(userId, gameweek.seasonId, gameweek.season.jokerSplitDate, gameweekId),
+    prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+  ]);
   const jokerAvailability = getJokerAvailability(
     gameweek.pickDeadlineAt,
     gameweek.season.jokerSplitDate,
     previousJokerHalves,
   );
 
-  const teams = await prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const teamOptions: TeamOption[] = teams.map((team) => {
     const takenBy = gameweek.picks.find((p) => p.teamId === team.id);
     if (takenBy) {

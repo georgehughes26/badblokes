@@ -105,11 +105,6 @@ body {
     @apply bg-white/5 text-muted;
   }
 
-  /* Reserves space for the fixed mobile tab bar so content never sits under it. */
-  .pb-tabbar {
-    padding-bottom: calc(4.75rem + var(--safe-bottom));
-  }
-
   .pt-safe {
     padding-top: var(--safe-top);
   }

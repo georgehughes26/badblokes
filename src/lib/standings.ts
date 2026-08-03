@@ -22,16 +22,17 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
     ? { id: { in: gameweekIds } }
     : { seasonId, status: "SETTLED" as const };
 
-  const results = await prisma.result.findMany({
-    where: { gameweek: gameweekFilter },
-    include: { user: true },
-  });
-
-  const jokerCounts = await prisma.pick.groupBy({
-    by: ["userId"],
-    where: { isJoker: true, gameweek: gameweekIds ? { id: { in: gameweekIds } } : { seasonId } },
-    _count: { _all: true },
-  });
+  const [results, jokerCounts] = await Promise.all([
+    prisma.result.findMany({
+      where: { gameweek: gameweekFilter },
+      include: { user: true },
+    }),
+    prisma.pick.groupBy({
+      by: ["userId"],
+      where: { isJoker: true, gameweek: gameweekIds ? { id: { in: gameweekIds } } : { seasonId } },
+      _count: { _all: true },
+    }),
+  ]);
   const jokerByUser = new Map(jokerCounts.map((j) => [j.userId, j._count._all]));
 
   const rows = new Map<string, StandingRow>();

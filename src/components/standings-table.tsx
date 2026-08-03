@@ -43,7 +43,6 @@ export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; c
                 </td>
                 <td className={`sticky left-12 z-10 px-2 py-3 font-medium ${rowBg}`}>
                   {row.name}
-                  {isWinner && <span className="pill-amber ml-2">Top</span>}
                   {isYou && <span className="pill-green ml-2">You</span>}
                 </td>
                 <td className="px-3 py-3 text-right text-muted">{row.played}</td>
