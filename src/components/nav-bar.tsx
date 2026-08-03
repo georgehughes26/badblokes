@@ -2,23 +2,27 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { LogoutButton } from "@/components/logout-button";
 
+// `built: false` routes don't exist yet — they render as a disabled,
+// greyed-out label instead of a dead link until that build step lands.
 const PLAYER_LINKS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/pick", label: "Make a Pick" },
-  { href: "/gameweek", label: "This Week" },
-  { href: "/league-table", label: "League Table" },
-  { href: "/gambler-of-the-month", label: "Gambler of the Month" },
-  { href: "/fines", label: "The Pot" },
-  { href: "/history", label: "History" },
+  { href: "/", label: "Dashboard", built: true },
+  { href: "/pick", label: "Make a Pick", built: true },
+  { href: "/gameweek", label: "This Week", built: false },
+  { href: "/league-table", label: "League Table", built: false },
+  { href: "/gambler-of-the-month", label: "Gambler of the Month", built: false },
+  { href: "/fines", label: "The Pot", built: false },
+  { href: "/history", label: "History", built: false },
 ];
 
 const ADMIN_LINKS = [
-  { href: "/admin/gameweeks", label: "Gameweeks" },
-  { href: "/admin/results", label: "Results" },
-  { href: "/admin/players", label: "Players" },
-  { href: "/admin/fines", label: "Fine Ledger" },
-  { href: "/admin/settings", label: "Settings" },
-  { href: "/admin/audit-log", label: "Audit Log" },
+  { href: "/admin/gameweeks", label: "Gameweeks", built: true },
+  { href: "/admin/teams", label: "Teams", built: true },
+  { href: "/admin/seasons", label: "Seasons", built: true },
+  { href: "/admin/results", label: "Results", built: false },
+  { href: "/admin/players", label: "Players", built: false },
+  { href: "/admin/fines", label: "Fine Ledger", built: false },
+  { href: "/admin/settings", label: "Settings", built: false },
+  { href: "/admin/audit-log", label: "Audit Log", built: false },
 ];
 
 export async function NavBar() {
@@ -32,28 +36,48 @@ export async function NavBar() {
           ⚽ Bad Blokes <span className="text-accent">Acca</span>
         </Link>
         <nav className="flex shrink-0 items-center gap-1 text-sm">
-          {PLAYER_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {PLAYER_LINKS.map((link) =>
+            link.built ? (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <span
+                key={link.href}
+                title="Coming soon"
+                className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted/40"
+              >
+                {link.label}
+              </span>
+            ),
+          )}
           {user.role === "ADMIN" && (
             <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
           )}
           {user.role === "ADMIN" &&
-            ADMIN_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-warn"
-              >
-                {link.label}
-              </Link>
-            ))}
+            ADMIN_LINKS.map((link) =>
+              link.built ? (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted transition-colors hover:bg-surface hover:text-warn"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <span
+                  key={link.href}
+                  title="Coming soon"
+                  className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-muted/40"
+                >
+                  {link.label}
+                </span>
+              ),
+            )}
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-3">
           <span className="hidden text-xs text-muted sm:inline">{user.name}</span>
