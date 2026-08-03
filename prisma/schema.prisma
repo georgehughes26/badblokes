@@ -1,0 +1,277 @@
+// Bad Blokes Acca — data model
+// See lib/rules.ts for the pure scoring/fines engine that consumes this data.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  email        String? // optional, for future reminder notifications (out of scope for v1)
+  role         Role     @default(PLAYER)
+  avatarUrl    String?
+  active       Boolean  @default(true)
+  joinedAt     DateTime @default(now())
+
+  sessions        Session[]
+  picks           Pick[]
+  results         Result[]
+  fineEntries     FineLedgerEntry[] @relation("FineOwner")
+  recordedFines   FineLedgerEntry[] @relation("FineRecorder")
+  createdInvites  InviteCode[]      @relation("InviteCreator")
+  redeemedInvites InviteCode[]      @relation("InviteRedeemer")
+  auditLogs       AuditLog[]
+  verifiedSlips   BetSlip[]         @relation("SlipVerifier")
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// A shared invite code the group hands out on WhatsApp. Not single-use by
+// default (maxUses null = unlimited) so one code can onboard the whole group.
+model InviteCode {
+  code        String    @id
+  role        Role      @default(PLAYER)
+  maxUses     Int? // null = unlimited
+  useCount    Int       @default(0)
+  active      Boolean   @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  createdById String?
+  createdBy   User?     @relation("InviteCreator", fields: [createdById], references: [id])
+
+  redemptions User[] @relation("InviteRedeemer")
+}
+
+// ---------------------------------------------------------------------------
+// Competition structure
+// ---------------------------------------------------------------------------
+
+model Season {
+  id             String   @id @default(cuid())
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  active         Boolean  @default(false)
+  // The Christmas-Day-style boundary that splits the season into two joker
+  // halves: one joker usable before this date, one usable on/after it.
+  jokerSplitDate DateTime
+  createdAt      DateTime @default(now())
+
+  gameweeks Gameweek[]
+
+  @@index([active])
+}
+
+enum GameweekStatus {
+  UPCOMING
+  OPEN
+  LOCKED
+  SETTLED
+}
+
+model Gameweek {
+  id             String         @id @default(cuid())
+  seasonId       String
+  season         Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  weekNumber     Int
+  picksOpenAt    DateTime // Friday 12:00 Europe/London (stored UTC)
+  pickDeadlineAt DateTime // Friday 23:59 Europe/London
+  slipDeadlineAt DateTime // Saturday 15:00 Europe/London
+  status         GameweekStatus @default(UPCOMING)
+  settledAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  fixtures    Fixture[]
+  picks       Pick[]
+  results     Result[]
+  fineEntries FineLedgerEntry[]
+
+  @@unique([seasonId, weekNumber])
+  @@index([status])
+}
+
+model Team {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  shortName String
+  crestUrl  String?
+  active    Boolean @default(true)
+
+  homeFixtures Fixture[] @relation("HomeTeam")
+  awayFixtures Fixture[] @relation("AwayTeam")
+  picks        Pick[]
+}
+
+enum FixtureStatus {
+  SCHEDULED
+  FINISHED
+}
+
+model Fixture {
+  id               String        @id @default(cuid())
+  gameweekId       String
+  gameweek         Gameweek      @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
+  homeTeamId       String
+  homeTeam         Team          @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId       String
+  awayTeam         Team          @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  kickoffAt        DateTime // Saturday 15:00 Europe/London
+  homeScore        Int?
+  awayScore        Int?
+  wentTwoAheadHome Boolean       @default(false) // home team went 2 goals up at any point (EP)
+  wentTwoAheadAway Boolean       @default(false)
+  status           FixtureStatus @default(SCHEDULED)
+  createdAt        DateTime      @default(now())
+
+  picks Pick[]
+
+  @@index([gameweekId])
+}
+
+// ---------------------------------------------------------------------------
+// Picks & slips
+// ---------------------------------------------------------------------------
+
+model Pick {
+  id                String   @id @default(cuid())
+  gameweekId        String
+  gameweek          Gameweek @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId            String
+  team              Team     @relation(fields: [teamId], references: [id])
+  fixtureId         String
+  fixture           Fixture  @relation(fields: [fixtureId], references: [id])
+  oddsFractional    String // as entered, e.g. "2/1", "evens"
+  oddsDecimal       Float // normalised decimal odds
+  isJoker           Boolean  @default(false)
+  createdAt         DateTime @default(now()) // server timestamp — decides first-come-first-served
+  overriddenByAdmin Boolean  @default(false)
+  overrideReason    String?
+
+  betSlip BetSlip?
+
+  // DB-level guarantees: one pick per player per gameweek, and one pick per
+  // team per gameweek (first come, first served — enforced by the DB, not
+  // just app logic, so simultaneous submits can't both win).
+  @@unique([gameweekId, userId])
+  @@unique([gameweekId, teamId])
+  @@index([userId])
+}
+
+model BetSlip {
+  id              String    @id @default(cuid())
+  pickId          String    @unique
+  pick            Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  token           String    @unique // unguessable token used in /slip/:token
+  storagePath     String? // local disk / S3 key for uploaded image
+  externalUrl     String? // pasted bookmaker share link, alternative to upload
+  mimeType        String?
+  submittedAt     DateTime?
+  verifiedByAdmin Boolean   @default(false)
+  verifiedById    String?
+  verifiedBy      User?     @relation("SlipVerifier", fields: [verifiedById], references: [id])
+  createdAt       DateTime  @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Settlement & fines
+// ---------------------------------------------------------------------------
+
+model Result {
+  id                 String   @id @default(cuid())
+  gameweekId         String
+  gameweek           Gameweek @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points             Int
+  breachNoPick       Boolean  @default(false) // A
+  breachNoSlip       Boolean  @default(false) // B
+  breachShortOdds    Boolean  @default(false) // C
+  breachTeamLost     Boolean  @default(false) // D
+  breachJokerLost    Boolean  @default(false) // E
+  fineAmount         Int      @default(0)
+  fineRuleId         String // which rule in the precedence list fired
+  fineReason         String // human readable, e.g. "£10 — joker lost"
+  jokerPlayed        Boolean  @default(false)
+  computedAt         DateTime @default(now())
+  manuallyOverridden Boolean  @default(false)
+  overrideReason     String?
+
+  @@unique([gameweekId, userId])
+  @@index([userId])
+}
+
+model FineLedgerEntry {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("FineOwner", fields: [userId], references: [id], onDelete: Cascade)
+  gameweekId   String
+  gameweek     Gameweek  @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
+  amount       Int
+  reason       String
+  paid         Boolean   @default(false)
+  paidAt       DateTime?
+  recordedById String?
+  recordedBy   User?     @relation("FineRecorder", fields: [recordedById], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@unique([gameweekId, userId])
+  @@index([userId])
+  @@index([paid])
+}
+
+// ---------------------------------------------------------------------------
+// Settings & audit
+// ---------------------------------------------------------------------------
+
+model Setting {
+  key         String   @id
+  value       String // JSON-encoded
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  before     String? // JSON-encoded
+  after      String? // JSON-encoded
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+}
