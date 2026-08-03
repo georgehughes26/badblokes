@@ -6,7 +6,6 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPreviousGameweekPickTeamId, getPreviousJokerHalves } from "@/lib/picks";
 import { isTeamOnCooldown } from "@/lib/cooldown";
 import { canPlayJoker, getJokerHalf } from "@/lib/jokers";
-import { parseOdds } from "@/lib/odds";
 import { isWithinWindow } from "@/lib/time";
 import { submitPickSchema } from "@/lib/validation/picks";
 
@@ -21,7 +20,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { gameweekId, teamId, oddsRaw, isJoker } = parsed.data;
+  const { gameweekId, teamId, isJoker } = parsed.data;
 
   const gameweek = await prisma.gameweek.findUnique({
     where: { id: gameweekId },
@@ -41,11 +40,6 @@ export async function POST(request: Request) {
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team || !team.active) {
     return NextResponse.json({ error: "That team isn't available to pick" }, { status: 400 });
-  }
-
-  const oddsDecimal = parseOdds(oddsRaw);
-  if (oddsDecimal === null) {
-    return NextResponse.json({ error: "Couldn't understand those odds — try e.g. 2/1, evens, or 3.00" }, { status: 400 });
   }
 
   const previousPickTeamId = await getPreviousGameweekPickTeamId(user.id, gameweek.seasonId, gameweek.weekNumber);
@@ -79,8 +73,6 @@ export async function POST(request: Request) {
           gameweekId,
           userId: user.id,
           teamId,
-          oddsFractional: oddsRaw,
-          oddsDecimal,
           isJoker,
         },
       });
@@ -94,7 +86,6 @@ export async function POST(request: Request) {
         ok: true,
         pickId: pick.id,
         teamName: team.name,
-        oddsDecimal,
         isJoker,
         slipToken,
       },

@@ -8,7 +8,7 @@ import { saveResultsSchema } from "@/lib/validation/results";
 const NO_PICK_INPUT: PlayerGameweekInput = {
   hasPick: false,
   isJoker: false,
-  oddsDecimal: null,
+  shortOdds: false,
   slipSubmitted: false,
   won: false,
 };
@@ -50,14 +50,19 @@ export async function POST(request: Request) {
       const outcome = settlePlayerGameweek({
         hasPick: true,
         isJoker: pick.isJoker,
-        oddsDecimal: pick.oddsDecimal,
+        shortOdds: fact.shortOdds,
         slipSubmitted: fact.slipSubmitted,
         won: fact.won || fact.wentTwoUp,
       });
 
       await tx.pick.update({
         where: { id: pick.id },
-        data: { resultWon: fact.won, resultWentTwoUp: fact.wentTwoUp, resultEnteredAt: new Date() },
+        data: {
+          resultWon: fact.won,
+          resultWentTwoUp: fact.wentTwoUp,
+          resultShortOdds: fact.shortOdds,
+          resultEnteredAt: new Date(),
+        },
       });
 
       if (pick.betSlip) {

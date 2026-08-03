@@ -388,22 +388,21 @@ async function main() {
   interface Gw1Scenario {
     user: (typeof players)[number];
     team: string;
-    oddsFractional: string;
-    oddsDecimal: number;
     isJoker: boolean;
     slipSubmitted: boolean;
     won: boolean;
     wentTwoUp: boolean;
+    shortOdds: boolean;
   }
 
   const scenarios: Gw1Scenario[] = [
-    { user: alice, team: "Arsenal", oddsFractional: "4/5", oddsDecimal: 1.8, isJoker: false, slipSubmitted: true, won: true, wentTwoUp: false },
-    { user: bob, team: "Chelsea", oddsFractional: "6/4", oddsDecimal: 2.5, isJoker: false, slipSubmitted: true, won: true, wentTwoUp: true },
-    { user: carol, team: "Liverpool", oddsFractional: "3/10", oddsDecimal: 1.3, isJoker: false, slipSubmitted: true, won: true, wentTwoUp: false },
-    { user: dave, team: "Manchester City", oddsFractional: "3/5", oddsDecimal: 1.6, isJoker: true, slipSubmitted: true, won: false, wentTwoUp: false },
-    { user: erin, team: "Newcastle United", oddsFractional: "evens", oddsDecimal: 2.0, isJoker: false, slipSubmitted: false, won: true, wentTwoUp: false },
-    { user: frank, team: "Everton", oddsFractional: "6/5", oddsDecimal: 2.2, isJoker: false, slipSubmitted: true, won: false, wentTwoUp: false },
-    { user: hank, team: "West Ham United", oddsFractional: "2/5", oddsDecimal: 1.4, isJoker: false, slipSubmitted: false, won: false, wentTwoUp: false },
+    { user: alice, team: "Arsenal", isJoker: false, slipSubmitted: true, won: true, wentTwoUp: false, shortOdds: false },
+    { user: bob, team: "Chelsea", isJoker: false, slipSubmitted: true, won: true, wentTwoUp: true, shortOdds: false },
+    { user: carol, team: "Liverpool", isJoker: false, slipSubmitted: true, won: true, wentTwoUp: false, shortOdds: true },
+    { user: dave, team: "Manchester City", isJoker: true, slipSubmitted: true, won: false, wentTwoUp: false, shortOdds: false },
+    { user: erin, team: "Newcastle United", isJoker: false, slipSubmitted: false, won: true, wentTwoUp: false, shortOdds: false },
+    { user: frank, team: "Everton", isJoker: false, slipSubmitted: true, won: false, wentTwoUp: false, shortOdds: false },
+    { user: hank, team: "West Ham United", isJoker: false, slipSubmitted: false, won: false, wentTwoUp: false, shortOdds: true },
   ];
   // Grace: no pick at all this gameweek.
 
@@ -414,11 +413,10 @@ async function main() {
         gameweekId: gw1.id,
         userId: scenario.user.id,
         teamId: team.id,
-        oddsFractional: scenario.oddsFractional,
-        oddsDecimal: scenario.oddsDecimal,
         isJoker: scenario.isJoker,
         resultWon: scenario.won,
         resultWentTwoUp: scenario.wentTwoUp,
+        resultShortOdds: scenario.shortOdds,
         resultEnteredAt: daysFromNow(-7),
       },
     });
@@ -436,7 +434,7 @@ async function main() {
     settlementInputs[scenario.user.id] = {
       hasPick: true,
       isJoker: scenario.isJoker,
-      oddsDecimal: scenario.oddsDecimal,
+      shortOdds: scenario.shortOdds,
       slipSubmitted: scenario.slipSubmitted,
       won: scenario.won || scenario.wentTwoUp,
     };
@@ -444,7 +442,7 @@ async function main() {
   settlementInputs[grace.id] = {
     hasPick: false,
     isJoker: false,
-    oddsDecimal: null,
+    shortOdds: false,
     slipSubmitted: false,
     won: false,
   };

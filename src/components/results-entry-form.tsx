@@ -10,11 +10,10 @@ export interface ResultsEntryPick {
   userName: string;
   teamName: string;
   isJoker: boolean;
-  oddsFractional: string;
-  oddsDecimal: number;
   slipSubmitted: boolean;
   won: boolean;
   wentTwoUp: boolean;
+  shortOdds: boolean;
 }
 
 export interface NoPickPlayer {
@@ -26,13 +25,14 @@ interface PickFactState {
   won: boolean;
   wentTwoUp: boolean;
   slipSubmitted: boolean;
+  shortOdds: boolean;
 }
 
-function toInput(fact: PickFactState, isJoker: boolean, oddsDecimal: number): PlayerGameweekInput {
+function toInput(fact: PickFactState, isJoker: boolean): PlayerGameweekInput {
   return {
     hasPick: true,
     isJoker,
-    oddsDecimal,
+    shortOdds: fact.shortOdds,
     slipSubmitted: fact.slipSubmitted,
     won: fact.won || fact.wentTwoUp,
   };
@@ -41,7 +41,7 @@ function toInput(fact: PickFactState, isJoker: boolean, oddsDecimal: number): Pl
 const NO_PICK_INPUT: PlayerGameweekInput = {
   hasPick: false,
   isJoker: false,
-  oddsDecimal: null,
+  shortOdds: false,
   slipSubmitted: false,
   won: false,
 };
@@ -60,7 +60,10 @@ export function ResultsEntryForm({
   const router = useRouter();
   const [facts, setFacts] = useState<Record<string, PickFactState>>(() =>
     Object.fromEntries(
-      picks.map((p) => [p.pickId, { won: p.won, wentTwoUp: p.wentTwoUp, slipSubmitted: p.slipSubmitted }]),
+      picks.map((p) => [
+        p.pickId,
+        { won: p.won, wentTwoUp: p.wentTwoUp, slipSubmitted: p.slipSubmitted, shortOdds: p.shortOdds },
+      ]),
     ),
   );
   const [submitting, setSubmitting] = useState(false);
@@ -75,7 +78,7 @@ export function ResultsEntryForm({
     const result: Array<{ userId: string; userName: string; teamName: string | null; outcome: SettlementOutcome }> = [];
     for (const pick of picks) {
       const fact = facts[pick.pickId];
-      const outcome = settlePlayerGameweek(toInput(fact, pick.isJoker, pick.oddsDecimal));
+      const outcome = settlePlayerGameweek(toInput(fact, pick.isJoker));
       result.push({ userId: pick.userId, userName: pick.userName, teamName: pick.teamName, outcome });
     }
     for (const player of noPickPlayers) {
@@ -112,13 +115,10 @@ export function ResultsEntryForm({
           {picks.map((pick) => {
             const fact = facts[pick.pickId];
             return (
-              <div key={pick.pickId} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
+              <div key={pick.pickId} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-center">
                 <div>
                   <p className="text-sm font-semibold">
                     {pick.userName} → {pick.teamName} {pick.isJoker && <span className="pill-amber ml-1">Joker</span>}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {pick.oddsFractional} ({pick.oddsDecimal.toFixed(2)})
                   </p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
@@ -147,6 +147,15 @@ export function ResultsEntryForm({
                     onChange={(e) => updateFact(pick.pickId, { slipSubmitted: e.target.checked })}
                   />
                   Slip in
+                </label>
+                <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs" title="Odds shorter than 1/2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-warn"
+                    checked={fact.shortOdds}
+                    onChange={(e) => updateFact(pick.pickId, { shortOdds: e.target.checked })}
+                  />
+                  Short odds
                 </label>
               </div>
             );

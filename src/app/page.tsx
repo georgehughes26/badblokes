@@ -1,8 +1,9 @@
 import { requireUser } from "@/lib/auth/current-user";
-import { getPickContext, getRelevantGameweek } from "@/lib/picks";
+import { getPickContext, getPicksReveal, getRelevantGameweek } from "@/lib/picks";
 import { getJokerHalf } from "@/lib/jokers";
 import { Countdown } from "@/components/countdown";
 import { PickScreen } from "@/components/pick-screen";
+import { PicksReveal } from "@/components/picks-reveal";
 import { TeamBadge } from "@/components/team-badge";
 
 export default async function HomePage() {
@@ -35,6 +36,7 @@ export default async function HomePage() {
 
   if (context.alreadyPicked && context.myPick) {
     const pick = context.myPick;
+    const picksSoFar = getPicksReveal(context.gameweek);
     return (
       <div className="space-y-4">
         {heading}
@@ -42,11 +44,9 @@ export default async function HomePage() {
           <p className="pill-green">You&apos;re in for this week</p>
           <TeamBadge name={pick.team.name} shortName={pick.team.shortName} crestUrl={pick.team.crestUrl} size="lg" />
           <p className="font-display text-3xl font-bold">You&apos;ve picked {pick.team.name}</p>
-          <p className="text-sm text-muted">
-            Odds {pick.oddsFractional} ({pick.oddsDecimal.toFixed(2)})
-          </p>
           {pick.isJoker && <p className="pill-amber">Joker played</p>}
         </div>
+        <PicksReveal picks={picksSoFar} currentUserId={user.id} />
       </div>
     );
   }
@@ -75,7 +75,6 @@ export default async function HomePage() {
           teamOptions={context.teamOptions}
           jokerAvailable={context.jokerAvailability.available}
           jokerHalfLabel={jokerHalf === "H1" ? "first half of the season" : "second half of the season"}
-          oddsMinDecimal={1.5}
         />
       </div>
     );

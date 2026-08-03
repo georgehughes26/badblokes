@@ -25,6 +25,35 @@ function loadGameweek(gameweekId: string) {
 
 type GameweekWithPicks = NonNullable<Awaited<ReturnType<typeof loadGameweek>>>;
 
+export interface PickRevealRow {
+  userId: string;
+  userName: string;
+  teamName: string;
+  teamShortName: string;
+  teamCrestUrl: string | null;
+  isJoker: boolean;
+  createdAt: Date;
+}
+
+/**
+ * Every confirmed pick for a gameweek, oldest first — the "who's picked so
+ * far" reveal shown once you've made your own pick. Never call this until
+ * the viewer has already picked; that gate lives in the page, not here.
+ */
+export function getPicksReveal(gameweek: GameweekWithPicks): PickRevealRow[] {
+  return [...gameweek.picks]
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((p) => ({
+      userId: p.userId,
+      userName: p.user.name,
+      teamName: p.team.name,
+      teamShortName: p.team.shortName,
+      teamCrestUrl: p.team.crestUrl,
+      isJoker: p.isJoker,
+      createdAt: p.createdAt,
+    }));
+}
+
 export interface PickContext {
   gameweek: GameweekWithPicks;
   alreadyPicked: boolean;

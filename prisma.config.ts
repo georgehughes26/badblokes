@@ -16,6 +16,15 @@ export default defineConfig({
     // `prisma generate` — which needs no live DB connection — doesn't hard
     // fail when DATABASE_URL isn't set yet (e.g. during a fresh CI/Vercel
     // install step before the platform's env vars are wired up).
+    //
+    // directUrl MUST be set here too, mirroring schema.prisma's own
+    // datasource block — this config block overrides the schema's url-like
+    // attributes wholesale, so leaving directUrl out silently drops it,
+    // leaving the migration engine to fall back to the pooled `url`
+    // (port 6543). That pooler runs in PgBouncer transaction mode, which
+    // hangs `prisma migrate deploy` outright (it needs a direct/session
+    // connection on 5432 to run schema changes at all).
     url: process.env.DATABASE_URL ?? "",
+    directUrl: process.env.DIRECT_URL,
   },
 });

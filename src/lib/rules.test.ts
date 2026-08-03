@@ -7,15 +7,11 @@ import {
   type PlayerGameweekInput,
 } from "./rules";
 
-const ODDS_1_3 = 1 / 3 + 1; // 1.333...
-const ODDS_2_5 = 2 / 5 + 1; // 1.4
-const ODDS_1_2 = 1 / 2 + 1; // 1.5 exactly — legal
-
 function input(overrides: Partial<PlayerGameweekInput>): PlayerGameweekInput {
   return {
     hasPick: true,
     isJoker: false,
-    oddsDecimal: 2.0,
+    shortOdds: false,
     slipSubmitted: true,
     won: true,
     ...overrides,
@@ -52,7 +48,7 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
   });
 
   it("picked, slip in, odds 1/3, team won -> C, +1, £5", () => {
-    const out = settlePlayerGameweek(input({ oddsDecimal: ODDS_1_3, won: true }));
+    const out = settlePlayerGameweek(input({ shortOdds: true, won: true }));
     expect(out.breaches.shortOdds).toBe(true);
     expect(out.points).toBe(1);
     expect(out.fine.amount).toBe(5);
@@ -60,7 +56,7 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
   });
 
   it("picked, slip in, odds 1/3, team lost -> C+D, 0 pts, £5 (not £7)", () => {
-    const out = settlePlayerGameweek(input({ oddsDecimal: ODDS_1_3, won: false }));
+    const out = settlePlayerGameweek(input({ shortOdds: true, won: false }));
     expect(out.breaches.shortOdds).toBe(true);
     expect(out.breaches.teamLost).toBe(true);
     expect(out.points).toBe(0);
@@ -78,7 +74,7 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
 
   it("picked, no slip, odds 2/5, team lost -> B+C+D, -1 pts, £10", () => {
     const out = settlePlayerGameweek(
-      input({ slipSubmitted: false, oddsDecimal: ODDS_2_5, won: false }),
+      input({ slipSubmitted: false, shortOdds: true, won: false }),
     );
     expect(out.breaches.noSlip).toBe(true);
     expect(out.breaches.shortOdds).toBe(true);
@@ -90,7 +86,7 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
 
   it("no pick at all (so no slip either) -> A+B, -1 pts, £10", () => {
     const out = settlePlayerGameweek(
-      input({ hasPick: false, isJoker: false, oddsDecimal: null, slipSubmitted: false, won: false }),
+      input({ hasPick: false, isJoker: false, shortOdds: false, slipSubmitted: false, won: false }),
     );
     expect(out.breaches.noPick).toBe(true);
     expect(out.breaches.noSlip).toBe(true);
@@ -133,7 +129,7 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
 
   it("joker, no slip, odds 1/3, team lost -> B+C+E, -1 pts, £10", () => {
     const out = settlePlayerGameweek(
-      input({ isJoker: true, slipSubmitted: false, oddsDecimal: ODDS_1_3, won: false }),
+      input({ isJoker: true, slipSubmitted: false, shortOdds: true, won: false }),
     );
     expect(out.breaches.noSlip).toBe(true);
     expect(out.breaches.shortOdds).toBe(true);
@@ -146,20 +142,20 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
 
 describe("settlePlayerGameweek — odds boundary", () => {
   it("odds exactly 1.50 (1/2) is legal, no short-odds breach, team wins", () => {
-    const out = settlePlayerGameweek(input({ oddsDecimal: ODDS_1_2, won: true }));
+    const out = settlePlayerGameweek(input({ shortOdds: false, won: true }));
     expect(out.breaches.shortOdds).toBe(false);
     expect(out.fine.amount).toBe(0);
   });
 
   it("odds exactly 1.50 (1/2) is legal even when the team loses (just the £2 loss fine)", () => {
-    const out = settlePlayerGameweek(input({ oddsDecimal: ODDS_1_2, won: false }));
+    const out = settlePlayerGameweek(input({ shortOdds: false, won: false }));
     expect(out.breaches.shortOdds).toBe(false);
     expect(out.fine.amount).toBe(2);
     expect(out.fine.ruleId).toBe("TEAM_LOST");
   });
 
   it("odds a hair below 1.50 (1.499) is a breach", () => {
-    const out = settlePlayerGameweek(input({ oddsDecimal: 1.499, won: true }));
+    const out = settlePlayerGameweek(input({ shortOdds: true, won: true }));
     expect(out.breaches.shortOdds).toBe(true);
   });
 });
@@ -179,7 +175,7 @@ describe("settlePlayerGameweek — fine precedence pairs never stack", () => {
   });
 
   it("a short-odds pick that loses is £5, never £7", () => {
-    const out = settlePlayerGameweek(input({ oddsDecimal: ODDS_1_3, won: false }));
+    const out = settlePlayerGameweek(input({ shortOdds: true, won: false }));
     expect(out.fine.amount).toBe(5);
   });
 });
@@ -188,7 +184,7 @@ describe("settlePlayerGameweek — invalid input guards", () => {
   it("rejects a joker played on a no-pick week", () => {
     expect(() =>
       settlePlayerGameweek(
-        input({ hasPick: false, isJoker: true, oddsDecimal: null, slipSubmitted: false, won: false }),
+        input({ hasPick: false, isJoker: true, shortOdds: false, slipSubmitted: false, won: false }),
       ),
     ).toThrow();
   });
@@ -196,7 +192,7 @@ describe("settlePlayerGameweek — invalid input guards", () => {
   it("rejects a no-pick input that somehow has a result", () => {
     expect(() =>
       settlePlayerGameweek(
-        input({ hasPick: false, isJoker: false, oddsDecimal: null, slipSubmitted: false, won: true }),
+        input({ hasPick: false, isJoker: false, shortOdds: false, slipSubmitted: false, won: true }),
       ),
     ).toThrow();
   });
@@ -204,7 +200,7 @@ describe("settlePlayerGameweek — invalid input guards", () => {
 
 describe("settlePlayerGameweek — idempotent re-settlement", () => {
   it("settling the same input twice (e.g. after a score correction re-run) gives identical results", () => {
-    const gw = input({ won: false, oddsDecimal: ODDS_1_3 });
+    const gw = input({ won: false, shortOdds: true });
     const first = settlePlayerGameweek(gw);
     const second = settlePlayerGameweek(gw);
     expect(second).toEqual(first);
@@ -226,7 +222,7 @@ describe("settleGameweek — batch settlement", () => {
     const results = settleGameweek({
       alice: input({ won: true }),
       bob: input({ won: false }),
-      carol: input({ hasPick: false, isJoker: false, oddsDecimal: null, slipSubmitted: false, won: false }),
+      carol: input({ hasPick: false, isJoker: false, shortOdds: false, slipSubmitted: false, won: false }),
     });
     expect(results.alice.points).toBe(1);
     expect(results.bob.points).toBe(0);

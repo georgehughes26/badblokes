@@ -29,14 +29,21 @@ export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; c
         <tbody className="divide-y divide-border">
           {rows.map((row, i) => {
             const isYou = row.userId === currentUserId;
-            const rowBg = isYou ? "bg-accent/10" : "bg-surface";
+            // Bottom-2 only kicks in once winner and relegation zone can't
+            // collide (a 1- or 2-player table would otherwise highlight the
+            // same row as both champion and last place).
+            const isBottom = rows.length > 2 && i >= rows.length - 2;
+            const isWinner = i === 0;
+            const rowBg = isBottom ? "bg-danger/10" : isWinner ? "bg-warn/10" : isYou ? "bg-accent/10" : "bg-surface";
+            const rankColor = isBottom ? "text-danger" : (MEDAL_CLASS[i] ?? "text-muted");
             return (
-              <tr key={row.userId} className={isYou ? "bg-accent/10" : undefined}>
-                <td className={`sticky left-0 z-10 w-12 px-4 py-3 font-display text-base font-semibold ${rowBg} ${MEDAL_CLASS[i] ?? "text-muted"}`}>
+              <tr key={row.userId} className={rowBg}>
+                <td className={`sticky left-0 z-10 w-12 px-4 py-3 font-display text-base font-semibold ${rowBg} ${rankColor}`}>
                   {i + 1}
                 </td>
                 <td className={`sticky left-12 z-10 px-2 py-3 font-medium ${rowBg}`}>
                   {row.name}
+                  {isWinner && <span className="pill-amber ml-2">Top</span>}
                   {isYou && <span className="pill-green ml-2">You</span>}
                 </td>
                 <td className="px-3 py-3 text-right text-muted">{row.played}</td>

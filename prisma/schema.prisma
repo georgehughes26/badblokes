@@ -147,8 +147,6 @@ model Pick {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   teamId            String
   team              Team     @relation(fields: [teamId], references: [id])
-  oddsFractional    String // as entered, e.g. "2/1", "evens"
-  oddsDecimal       Float // normalised decimal odds
   isJoker           Boolean  @default(false)
   createdAt         DateTime @default(now()) // server timestamp — decides first-come-first-served
   overriddenByAdmin Boolean  @default(false)
@@ -157,8 +155,12 @@ model Pick {
   // Admin-entered once games are done. Null until results are in. Combined
   // (either true = "won" for the rules engine) — kept separate so the UI can
   // still label an EP win as "Won (EP)" distinctly from an outright win.
+  // resultShortOdds is likewise a manual admin call (players no longer type
+  // odds into the app — that's worked out among themselves) rather than
+  // derived from a stored odds value.
   resultWon       Boolean?
   resultWentTwoUp Boolean?
+  resultShortOdds Boolean?
   resultEnteredAt DateTime?
 
   betSlip BetSlip?

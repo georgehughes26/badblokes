@@ -26,11 +26,10 @@ export default async function AdminResultsEntryPage({ params }: { params: Promis
     userName: pick.user.name,
     teamName: pick.team.name,
     isJoker: pick.isJoker,
-    oddsFractional: pick.oddsFractional,
-    oddsDecimal: pick.oddsDecimal,
     slipSubmitted: Boolean(pick.betSlip?.submittedAt),
     won: pick.resultWon ?? false,
     wentTwoUp: pick.resultWentTwoUp ?? false,
+    shortOdds: pick.resultShortOdds ?? false,
   }));
 
   return (

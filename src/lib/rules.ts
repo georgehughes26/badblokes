@@ -12,7 +12,12 @@
  */
 
 export interface RulesConfig {
-  /** Decimal odds below this are "too short" (breach C). 1/2 = 1.50 is legal. */
+  /**
+   * Decimal odds below this are "too short" (breach C) — 1/2 = 1.50 is
+   * legal. Purely descriptive now: whether a pick was short odds is a
+   * manual admin call at results entry (see PlayerGameweekInput.shortOdds),
+   * not derived from a stored odds value.
+   */
   oddsMinDecimal: number;
   /** Breach A — no pick by the pick deadline. */
   fineNoPick: number;
@@ -53,8 +58,11 @@ export interface PlayerGameweekInput {
   hasPick: boolean;
   /** Was this pick the player's joker? Must be false when hasPick is false. */
   isJoker: boolean;
-  /** Normalised decimal odds as entered for the pick. Null when hasPick is false. */
-  oddsDecimal: number | null;
+  /**
+   * Were this pick's odds shorter than the legal minimum (1/2)? A manual
+   * admin call at results entry — always false when hasPick is false.
+   */
+  shortOdds: boolean;
   /** Was a bet slip submitted before the slip deadline? Always false when hasPick is false. */
   slipSubmitted: boolean;
   /**
@@ -125,11 +133,10 @@ export function didTeamWin(fixture: FixtureResultInput, teamId: string): boolean
   throw new Error(`Team ${teamId} is not in this fixture`);
 }
 
-function computeBreaches(input: PlayerGameweekInput, config: RulesConfig): BreachFlags {
+function computeBreaches(input: PlayerGameweekInput): BreachFlags {
   const noPick = !input.hasPick;
   const noSlip = !input.slipSubmitted;
-  const shortOdds =
-    input.hasPick && input.oddsDecimal !== null && input.oddsDecimal < config.oddsMinDecimal;
+  const shortOdds = input.hasPick && input.shortOdds;
   const teamLost = input.hasPick && !input.won;
   const jokerLost = input.hasPick && input.isJoker && !input.won;
 
@@ -231,11 +238,11 @@ export function settlePlayerGameweek(
   if (!input.hasPick && input.isJoker) {
     throw new Error("Cannot play a joker on a no-pick week");
   }
-  if (!input.hasPick && (input.won || input.slipSubmitted || input.oddsDecimal !== null)) {
-    throw new Error("A no-pick input cannot have a result, a slip, or odds");
+  if (!input.hasPick && (input.won || input.slipSubmitted || input.shortOdds)) {
+    throw new Error("A no-pick input cannot have a result, a slip, or short odds");
   }
 
-  const breaches = computeBreaches(input, config);
+  const breaches = computeBreaches(input);
   const fine = computeFine(breaches, config);
   const points = computePoints(breaches, input, config);
 

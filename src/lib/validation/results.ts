@@ -8,6 +8,7 @@ export const saveResultsSchema = z.object({
       won: z.boolean(),
       wentTwoUp: z.boolean(),
       slipSubmitted: z.boolean(),
+      shortOdds: z.boolean(),
     }),
   ),
 });

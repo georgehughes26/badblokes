@@ -121,7 +121,7 @@ export default async function AdminGameweekDetailPage({
                 {pick.user.name} → {pick.team.name} {pick.isJoker && <span className="pill-amber ml-1">Joker</span>}
               </span>
               <span className="text-xs text-muted">
-                {pick.oddsFractional} ({pick.oddsDecimal.toFixed(2)}) · {formatLondon(pick.createdAt)}
+                {formatLondon(pick.createdAt)}
                 {pick.resultEnteredAt && (
                   <span className="pill-green ml-2">{pick.resultWon ? (pick.resultWentTwoUp ? "Won (EP)" : "Won") : "Lost"}</span>
                 )}
