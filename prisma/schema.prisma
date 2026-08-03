@@ -30,15 +30,14 @@ model User {
   active       Boolean  @default(true)
   joinedAt     DateTime @default(now())
 
-  sessions        Session[]
-  picks           Pick[]
-  results         Result[]
-  fineEntries     FineLedgerEntry[] @relation("FineOwner")
-  recordedFines   FineLedgerEntry[] @relation("FineRecorder")
-  createdInvites  InviteCode[]      @relation("InviteCreator")
-  redeemedInvites InviteCode[]      @relation("InviteRedeemer")
-  auditLogs       AuditLog[]
-  verifiedSlips   BetSlip[]         @relation("SlipVerifier")
+  sessions       Session[]
+  picks          Pick[]
+  results        Result[]
+  fineEntries    FineLedgerEntry[] @relation("FineOwner")
+  recordedFines  FineLedgerEntry[] @relation("FineRecorder")
+  createdInvites InviteCode[]      @relation("InviteCreator")
+  auditLogs      AuditLog[]
+  verifiedSlips  BetSlip[]         @relation("SlipVerifier")
 
   @@index([role])
 }
@@ -66,8 +65,6 @@ model InviteCode {
   createdAt   DateTime  @default(now())
   createdById String?
   createdBy   User?     @relation("InviteCreator", fields: [createdById], references: [id])
-
-  redemptions User[] @relation("InviteRedeemer")
 }
 
 // ---------------------------------------------------------------------------

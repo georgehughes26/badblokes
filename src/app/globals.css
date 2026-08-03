@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #05070d;
+  --surface: #10152a;
+  --surface-raised: #161c38;
+  --border: #232a4d;
+  --foreground: #eef1fb;
+  --muted: #8b93b8;
+  --accent: #4ade80;
+  --accent-strong: #22c55e;
+  --warn: #fbbf24;
+  --danger: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface p-4 sm:p-5;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-black hover:bg-accent-strong;
+  }
+
+  .btn-secondary {
+    @apply border border-border bg-surface-raised text-foreground hover:border-accent/50;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-black hover:brightness-90;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted;
+  }
+
+  .pill-green,
+  .pill-amber,
+  .pill-red,
+  .pill-muted {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .pill-green {
+    @apply bg-accent/15 text-accent;
+  }
+
+  .pill-amber {
+    @apply bg-warn/15 text-warn;
+  }
+
+  .pill-red {
+    @apply bg-danger/15 text-danger;
+  }
+
+  .pill-muted {
+    @apply bg-white/5 text-muted;
+  }
 }
