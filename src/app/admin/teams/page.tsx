@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createTeam, setTeamActive, syncTeamsFromOpenFootball } from "@/lib/actions/admin";
+import { createTeam, setTeamActive } from "@/lib/actions/admin";
 import { ErrorBanner, SuccessBanner } from "@/components/banners";
 
 export default async function AdminTeamsPage({
@@ -12,18 +12,7 @@ export default async function AdminTeamsPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-bold">Teams</h1>
-        <form action={syncTeamsFromOpenFootball}>
-          <button type="submit" className="btn-secondary !px-3 !py-1.5 text-xs">
-            Sync Premier League → League Two from openfootball
-          </button>
-        </form>
-      </div>
-      <p className="-mt-3 text-xs text-muted">
-        Pulls team lists from the free openfootball dataset (tiers 1-4). National League and anything else still go
-        through the form below.
-      </p>
+      <h1 className="text-lg font-bold">Teams</h1>
       <ErrorBanner message={error} />
       <SuccessBanner message={success} />
 

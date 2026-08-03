@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const gameweek = await prisma.gameweek.findUnique({
     where: { id: gameweekId },
-    include: { season: true, fixtures: true },
+    include: { season: true },
   });
   if (!gameweek) {
     return NextResponse.json({ error: "Gameweek not found" }, { status: 404 });
@@ -38,9 +38,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Picks are closed for this gameweek" }, { status: 403 });
   }
 
-  const fixture = gameweek.fixtures.find((f) => f.homeTeamId === teamId || f.awayTeamId === teamId);
-  if (!fixture) {
-    return NextResponse.json({ error: "That team isn't playing this gameweek" }, { status: 400 });
+  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  if (!team || !team.active) {
+    return NextResponse.json({ error: "That team isn't available to pick" }, { status: 400 });
   }
 
   const oddsDecimal = parseOdds(oddsRaw);
@@ -73,14 +73,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
     const { pick, slipToken } = await prisma.$transaction(async (tx) => {
       const created = await tx.pick.create({
         data: {
           gameweekId,
           userId: user.id,
           teamId,
-          fixtureId: fixture.id,
           oddsFractional: oddsRaw,
           oddsDecimal,
           isJoker,
@@ -95,7 +93,7 @@ export async function POST(request: Request) {
       {
         ok: true,
         pickId: pick.id,
-        teamName: team?.name ?? "",
+        teamName: team.name,
         oddsDecimal,
         isJoker,
         slipToken,
@@ -107,9 +105,8 @@ export async function POST(request: Request) {
       const target = (err.meta?.target as string[] | string | undefined) ?? "";
       const targetStr = Array.isArray(target) ? target.join(",") : String(target);
       if (targetStr.includes("teamId")) {
-        const team = await prisma.team.findUnique({ where: { id: teamId } });
         return NextResponse.json(
-          { error: `Sorry — ${team?.name ?? "that team"} was just taken. Pick again.` },
+          { error: `Sorry — ${team.name} was just taken. Pick again.` },
           { status: 409 },
         );
       }

@@ -19,7 +19,7 @@ export default async function AdminGameweeksPage({
   const { error, success } = await searchParams;
   const seasons = await prisma.season.findMany({ orderBy: { startDate: "desc" } });
   const gameweeks = await prisma.gameweek.findMany({
-    include: { season: true, _count: { select: { fixtures: true, picks: true } } },
+    include: { season: true, _count: { select: { picks: true } } },
     orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "asc" }],
   });
 
@@ -78,7 +78,7 @@ export default async function AdminGameweeksPage({
                 {gw.season.name} — GW{gw.weekNumber}
               </p>
               <p className="text-xs text-muted">
-                Kick-off {formatLondon(gw.slipDeadlineAt)} · {gw._count.fixtures} fixtures · {gw._count.picks} picks
+                Kick-off {formatLondon(gw.slipDeadlineAt)} · {gw._count.picks} picks
               </p>
             </div>
             <span className={STATUS_PILL[gw.status]}>{gw.status}</span>

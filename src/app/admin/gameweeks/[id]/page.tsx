@@ -1,12 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  createFixture,
-  deleteFixture,
-  importFixturesFromOpenFootball,
-  updateGameweekDeadlines,
-  updateGameweekStatus,
-} from "@/lib/actions/admin";
+import { updateGameweekDeadlines, updateGameweekStatus } from "@/lib/actions/admin";
 import { ErrorBanner, SuccessBanner } from "@/components/banners";
 import { formatLondon, toLondonDatetimeLocal } from "@/lib/time";
 
@@ -26,22 +21,23 @@ export default async function AdminGameweekDetailPage({
     where: { id },
     include: {
       season: true,
-      fixtures: { include: { homeTeam: true, awayTeam: true }, orderBy: { createdAt: "asc" } },
-      picks: { include: { user: true, team: true } },
+      picks: { include: { user: true, team: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!gameweek) notFound();
 
-  const teams = await prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } });
-  const usedTeamIds = new Set(gameweek.fixtures.flatMap((f) => [f.homeTeamId, f.awayTeamId]));
-
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-bold">
-          {gameweek.season.name} — Gameweek {gameweek.weekNumber}
-        </h1>
-        <p className="text-sm text-muted">Status: {gameweek.status}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold">
+            {gameweek.season.name} — Gameweek {gameweek.weekNumber}
+          </h1>
+          <p className="text-sm text-muted">Status: {gameweek.status}</p>
+        </div>
+        <Link href={`/admin/results/${gameweek.id}`} className="btn-primary">
+          Enter results
+        </Link>
       </div>
       <ErrorBanner message={error} />
       <SuccessBanner message={success} />
@@ -117,84 +113,6 @@ export default async function AdminGameweekDetailPage({
       </section>
 
       <section className="card space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-muted">Fixtures ({gameweek.fixtures.length})</h2>
-          <form action={importFixturesFromOpenFootball}>
-            <input type="hidden" name="gameweekId" value={gameweek.id} />
-            <button type="submit" className="btn-secondary !px-3 !py-1.5 text-xs">
-              Import 3pm fixtures from openfootball
-            </button>
-          </form>
-        </div>
-        <p className="-mt-1 text-xs text-muted">
-          Pulls this gameweek&apos;s real Saturday 15:00 fixtures (tiers 1-4) and adds any that aren&apos;t already
-          here — safe to click more than once.
-        </p>
-        <form action={createFixture} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <input type="hidden" name="gameweekId" value={gameweek.id} />
-          <div>
-            <label className="label" htmlFor="homeTeamId">
-              Home
-            </label>
-            <select id="homeTeamId" name="homeTeamId" className="input" required defaultValue="">
-              <option value="" disabled>
-                Choose team
-              </option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {usedTeamIds.has(t.id) ? "(already in this GW)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label" htmlFor="awayTeamId">
-              Away
-            </label>
-            <select id="awayTeamId" name="awayTeamId" className="input" required defaultValue="">
-              <option value="" disabled>
-                Choose team
-              </option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {usedTeamIds.has(t.id) ? "(already in this GW)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="submit" className="btn-primary">
-            Add fixture
-          </button>
-        </form>
-
-        <div className="divide-y divide-border">
-          {gameweek.fixtures.map((fixture) => (
-            <div key={fixture.id} className="flex items-center justify-between gap-3 py-2.5">
-              <p className="text-sm">
-                {fixture.homeTeam.name}{" "}
-                {fixture.homeScore !== null ? (
-                  <span className="font-mono font-semibold">{fixture.homeScore}</span>
-                ) : null}{" "}
-                v{" "}
-                {fixture.awayScore !== null ? (
-                  <span className="font-mono font-semibold">{fixture.awayScore}</span>
-                ) : null}{" "}
-                {fixture.awayTeam.name}
-              </p>
-              <form action={deleteFixture}>
-                <input type="hidden" name="fixtureId" value={fixture.id} />
-                <input type="hidden" name="gameweekId" value={gameweek.id} />
-                <button type="submit" className="text-xs text-danger hover:underline">
-                  Remove
-                </button>
-              </form>
-            </div>
-          ))}
-          {gameweek.fixtures.length === 0 && <p className="py-4 text-sm text-muted">No fixtures added yet.</p>}
-        </div>
-      </section>
-
-      <section className="card space-y-3">
         <h2 className="text-sm font-semibold text-muted">Picks so far ({gameweek.picks.length})</h2>
         <div className="divide-y divide-border">
           {gameweek.picks.map((pick) => (
@@ -204,6 +122,9 @@ export default async function AdminGameweekDetailPage({
               </span>
               <span className="text-xs text-muted">
                 {pick.oddsFractional} ({pick.oddsDecimal.toFixed(2)}) · {formatLondon(pick.createdAt)}
+                {pick.resultEnteredAt && (
+                  <span className="pill-green ml-2">{pick.resultWon ? (pick.resultWentTwoUp ? "Won (EP)" : "Won") : "Lost"}</span>
+                )}
               </span>
             </div>
           ))}

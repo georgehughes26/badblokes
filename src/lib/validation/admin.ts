@@ -51,19 +51,3 @@ export const gameweekDeadlinesSchema = z
     message: "The slip deadline must be on or after the pick deadline",
     path: ["slipDeadlineAt"],
   });
-
-export const createFixtureSchema = z
-  .object({
-    gameweekId: z.string().min(1),
-    homeTeamId: z.string().min(1, "Pick a home team"),
-    awayTeamId: z.string().min(1, "Pick an away team"),
-  })
-  .refine((d) => d.homeTeamId !== d.awayTeamId, {
-    message: "Home and away teams must be different",
-    path: ["awayTeamId"],
-  });
-
-export const deleteFixtureSchema = z.object({
-  fixtureId: z.string().min(1),
-  gameweekId: z.string().min(1),
-});

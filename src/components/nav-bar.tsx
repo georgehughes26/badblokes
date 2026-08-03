@@ -6,19 +6,16 @@ import { LogoutButton } from "@/components/logout-button";
 // greyed-out label instead of a dead link until that build step lands.
 const PLAYER_LINKS = [
   { href: "/", label: "Dashboard", built: true },
-  { href: "/pick", label: "Make a Pick", built: true },
-  { href: "/gameweek", label: "This Week", built: false },
-  { href: "/league-table", label: "League Table", built: false },
-  { href: "/gambler-of-the-month", label: "Gambler of the Month", built: false },
-  { href: "/fines", label: "The Pot", built: false },
+  { href: "/league-table", label: "Table", built: true },
+  { href: "/fines", label: "The Pot", built: true },
   { href: "/history", label: "History", built: false },
 ];
 
 const ADMIN_LINKS = [
   { href: "/admin/gameweeks", label: "Gameweeks", built: true },
+  { href: "/admin/results", label: "Results", built: true },
   { href: "/admin/teams", label: "Teams", built: true },
   { href: "/admin/seasons", label: "Seasons", built: true },
-  { href: "/admin/results", label: "Results", built: false },
   { href: "/admin/players", label: "Players", built: false },
   { href: "/admin/fines", label: "Fine Ledger", built: false },
   { href: "/admin/settings", label: "Settings", built: false },

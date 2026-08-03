@@ -1,11 +1,13 @@
+Loaded Prisma config from prisma.config.ts.
+
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('PLAYER', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "GameweekStatus" AS ENUM ('UPCOMING', 'OPEN', 'LOCKED', 'SETTLED');
-
--- CreateEnum
-CREATE TYPE "FixtureStatus" AS ENUM ('SCHEDULED', 'FINISHED');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -81,26 +83,10 @@ CREATE TABLE "Team" (
     "name" TEXT NOT NULL,
     "shortName" TEXT NOT NULL,
     "crestUrl" TEXT,
+    "division" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "Team_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Fixture" (
-    "id" TEXT NOT NULL,
-    "gameweekId" TEXT NOT NULL,
-    "homeTeamId" TEXT NOT NULL,
-    "awayTeamId" TEXT NOT NULL,
-    "kickoffAt" TIMESTAMP(3) NOT NULL,
-    "homeScore" INTEGER,
-    "awayScore" INTEGER,
-    "wentTwoAheadHome" BOOLEAN NOT NULL DEFAULT false,
-    "wentTwoAheadAway" BOOLEAN NOT NULL DEFAULT false,
-    "status" "FixtureStatus" NOT NULL DEFAULT 'SCHEDULED',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Fixture_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -109,13 +95,15 @@ CREATE TABLE "Pick" (
     "gameweekId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
-    "fixtureId" TEXT NOT NULL,
     "oddsFractional" TEXT NOT NULL,
     "oddsDecimal" DOUBLE PRECISION NOT NULL,
     "isJoker" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "overriddenByAdmin" BOOLEAN NOT NULL DEFAULT false,
     "overrideReason" TEXT,
+    "resultWon" BOOLEAN,
+    "resultWentTwoUp" BOOLEAN,
+    "resultEnteredAt" TIMESTAMP(3),
 
     CONSTRAINT "Pick_pkey" PRIMARY KEY ("id")
 );
@@ -223,7 +211,7 @@ CREATE UNIQUE INDEX "Gameweek_seasonId_weekNumber_key" ON "Gameweek"("seasonId",
 CREATE UNIQUE INDEX "Team_name_key" ON "Team"("name");
 
 -- CreateIndex
-CREATE INDEX "Fixture_gameweekId_idx" ON "Fixture"("gameweekId");
+CREATE INDEX "Team_division_idx" ON "Team"("division");
 
 -- CreateIndex
 CREATE INDEX "Pick_userId_idx" ON "Pick"("userId");
@@ -271,15 +259,6 @@ ALTER TABLE "InviteCode" ADD CONSTRAINT "InviteCode_createdById_fkey" FOREIGN KE
 ALTER TABLE "Gameweek" ADD CONSTRAINT "Gameweek_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Fixture" ADD CONSTRAINT "Fixture_gameweekId_fkey" FOREIGN KEY ("gameweekId") REFERENCES "Gameweek"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Fixture" ADD CONSTRAINT "Fixture_homeTeamId_fkey" FOREIGN KEY ("homeTeamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Fixture" ADD CONSTRAINT "Fixture_awayTeamId_fkey" FOREIGN KEY ("awayTeamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Pick" ADD CONSTRAINT "Pick_gameweekId_fkey" FOREIGN KEY ("gameweekId") REFERENCES "Gameweek"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -287,9 +266,6 @@ ALTER TABLE "Pick" ADD CONSTRAINT "Pick_userId_fkey" FOREIGN KEY ("userId") REFE
 
 -- AddForeignKey
 ALTER TABLE "Pick" ADD CONSTRAINT "Pick_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Pick" ADD CONSTRAINT "Pick_fixtureId_fkey" FOREIGN KEY ("fixtureId") REFERENCES "Fixture"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BetSlip" ADD CONSTRAINT "BetSlip_pickId_fkey" FOREIGN KEY ("pickId") REFERENCES "Pick"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -314,3 +290,4 @@ ALTER TABLE "FineLedgerEntry" ADD CONSTRAINT "FineLedgerEntry_recordedById_fkey"
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

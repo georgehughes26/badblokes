@@ -88,6 +88,13 @@ model Season {
   @@index([active])
 }
 
+// ---------------------------------------------------------------------------
+// Note on architecture: there is deliberately no Fixture model. A pick only
+// ever needs "did the team this player picked win, or go 2 up?" — never the
+// opponent or the scoreline — so admin enters that one fact directly against
+// each Pick once games are done (see Pick.resultWon / resultWentTwoUp below).
+// ---------------------------------------------------------------------------
+
 enum GameweekStatus {
   UPCOMING
   OPEN
@@ -107,7 +114,6 @@ model Gameweek {
   settledAt      DateTime?
   createdAt      DateTime       @default(now())
 
-  fixtures    Fixture[]
   picks       Pick[]
   results     Result[]
   fineEntries FineLedgerEntry[]
@@ -124,37 +130,9 @@ model Team {
   division  String? // e.g. "Premier League", "Championship" — null for manually-added teams
   active    Boolean @default(true)
 
-  homeFixtures Fixture[] @relation("HomeTeam")
-  awayFixtures Fixture[] @relation("AwayTeam")
-  picks        Pick[]
-
-  @@index([division])
-}
-
-enum FixtureStatus {
-  SCHEDULED
-  FINISHED
-}
-
-model Fixture {
-  id               String        @id @default(cuid())
-  gameweekId       String
-  gameweek         Gameweek      @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
-  homeTeamId       String
-  homeTeam         Team          @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeamId       String
-  awayTeam         Team          @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  kickoffAt        DateTime // Saturday 15:00 Europe/London
-  homeScore        Int?
-  awayScore        Int?
-  wentTwoAheadHome Boolean       @default(false) // home team went 2 goals up at any point (EP)
-  wentTwoAheadAway Boolean       @default(false)
-  status           FixtureStatus @default(SCHEDULED)
-  createdAt        DateTime      @default(now())
-
   picks Pick[]
 
-  @@index([gameweekId])
+  @@index([division])
 }
 
 // ---------------------------------------------------------------------------
@@ -169,14 +147,19 @@ model Pick {
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   teamId            String
   team              Team     @relation(fields: [teamId], references: [id])
-  fixtureId         String
-  fixture           Fixture  @relation(fields: [fixtureId], references: [id])
   oddsFractional    String // as entered, e.g. "2/1", "evens"
   oddsDecimal       Float // normalised decimal odds
   isJoker           Boolean  @default(false)
   createdAt         DateTime @default(now()) // server timestamp — decides first-come-first-served
   overriddenByAdmin Boolean  @default(false)
   overrideReason    String?
+
+  // Admin-entered once games are done. Null until results are in. Combined
+  // (either true = "won" for the rules engine) — kept separate so the UI can
+  // still label an EP win as "Won (EP)" distinctly from an outright win.
+  resultWon       Boolean?
+  resultWentTwoUp Boolean?
+  resultEnteredAt DateTime?
 
   betSlip BetSlip?
 

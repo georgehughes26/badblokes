@@ -3,31 +3,33 @@ import { isTeamOnCooldown } from "@/lib/cooldown";
 import { getJokerAvailability, type JokerHalf, getJokerHalf } from "@/lib/jokers";
 import { isWithinWindow } from "@/lib/time";
 
-export interface TeamAvailability {
-  teamId: string;
+export interface TeamOption {
+  id: string;
+  name: string;
+  shortName: string;
+  crestUrl: string | null;
+  division: string | null;
   available: boolean;
   reason: string | null;
 }
 
-function loadGameweekWithFixtures(gameweekId: string) {
+function loadGameweek(gameweekId: string) {
   return prisma.gameweek.findUnique({
     where: { id: gameweekId },
     include: {
       season: true,
-      fixtures: { include: { homeTeam: true, awayTeam: true }, orderBy: { kickoffAt: "asc" } },
       picks: { include: { user: true, team: true } },
     },
   });
 }
 
-type GameweekWithFixtures = NonNullable<Awaited<ReturnType<typeof loadGameweekWithFixtures>>>;
+type GameweekWithPicks = NonNullable<Awaited<ReturnType<typeof loadGameweek>>>;
 
 export interface PickContext {
-  gameweek: GameweekWithFixtures;
-  fixtures: GameweekWithFixtures["fixtures"];
+  gameweek: GameweekWithPicks;
   alreadyPicked: boolean;
-  myPick: GameweekWithFixtures["picks"][number] | null;
-  teamAvailability: Map<string, TeamAvailability>;
+  myPick: GameweekWithPicks["picks"][number] | null;
+  teamOptions: TeamOption[];
   jokerAvailability: ReturnType<typeof getJokerAvailability>;
   windowOpen: boolean;
 }
@@ -36,6 +38,21 @@ export interface PickContext {
 export async function getCurrentOpenGameweek() {
   return prisma.gameweek.findFirst({
     where: { status: "OPEN" },
+    orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "asc" }],
+    include: { season: true },
+  });
+}
+
+/**
+ * The gameweek the player's home screen should show right now: the OPEN one
+ * if there is one, otherwise the soonest UPCOMING one (so we can still show
+ * a "picks open in..." countdown before the window opens).
+ */
+export async function getRelevantGameweek() {
+  const open = await getCurrentOpenGameweek();
+  if (open) return open;
+  return prisma.gameweek.findFirst({
+    where: { status: "UPCOMING" },
     orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "asc" }],
     include: { season: true },
   });
@@ -75,7 +92,7 @@ export async function getPreviousGameweekPickTeamId(
 
 /** Everything the pick screen (and the API route that validates a submission) needs to know. */
 export async function getPickContext(userId: string, gameweekId: string): Promise<PickContext | null> {
-  const gameweek = await loadGameweekWithFixtures(gameweekId);
+  const gameweek = await loadGameweek(gameweekId);
   if (!gameweek) return null;
 
   const myPick = gameweek.picks.find((p) => p.userId === userId) ?? null;
@@ -92,36 +109,47 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
     previousJokerHalves,
   );
 
-  const teamAvailability = new Map<string, TeamAvailability>();
-  for (const fixture of gameweek.fixtures) {
-    for (const team of [fixture.homeTeam, fixture.awayTeam]) {
-      const takenBy = gameweek.picks.find((p) => p.teamId === team.id);
-      if (takenBy) {
-        teamAvailability.set(team.id, {
-          teamId: team.id,
-          available: false,
-          reason: `Taken by ${takenBy.user.name}`,
-        });
-        continue;
-      }
-      if (isTeamOnCooldown(previousPickTeamId, team.id)) {
-        teamAvailability.set(team.id, {
-          teamId: team.id,
-          available: false,
-          reason: "You picked this team last gameweek",
-        });
-        continue;
-      }
-      teamAvailability.set(team.id, { teamId: team.id, available: true, reason: null });
+  const teams = await prisma.team.findMany({ where: { active: true }, orderBy: { name: "asc" } });
+  const teamOptions: TeamOption[] = teams.map((team) => {
+    const takenBy = gameweek.picks.find((p) => p.teamId === team.id);
+    if (takenBy) {
+      return {
+        id: team.id,
+        name: team.name,
+        shortName: team.shortName,
+        crestUrl: team.crestUrl,
+        division: team.division,
+        available: false,
+        reason: `Taken by ${takenBy.user.name}`,
+      };
     }
-  }
+    if (isTeamOnCooldown(previousPickTeamId, team.id)) {
+      return {
+        id: team.id,
+        name: team.name,
+        shortName: team.shortName,
+        crestUrl: team.crestUrl,
+        division: team.division,
+        available: false,
+        reason: "You picked this team last gameweek",
+      };
+    }
+    return {
+      id: team.id,
+      name: team.name,
+      shortName: team.shortName,
+      crestUrl: team.crestUrl,
+      division: team.division,
+      available: true,
+      reason: null,
+    };
+  });
 
   return {
     gameweek,
-    fixtures: gameweek.fixtures,
     alreadyPicked: Boolean(myPick),
     myPick,
-    teamAvailability,
+    teamOptions,
     jokerAvailability,
     windowOpen:
       gameweek.status === "OPEN" && isWithinWindow(new Date(), gameweek.picksOpenAt, gameweek.pickDeadlineAt),
