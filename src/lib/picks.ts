@@ -61,6 +61,8 @@ export interface PickContext {
   teamOptions: TeamOption[];
   jokerAvailability: ReturnType<typeof getJokerAvailability>;
   windowOpen: boolean;
+  /** Has picksOpenAt already passed? Lets the UI tell "still upcoming" apart from "stuck waiting on a manual status flip". */
+  picksOpenAtPassed: boolean;
 }
 
 /** The gameweek a player should be looking at right now: the earliest OPEN one. */
@@ -173,13 +175,14 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
     };
   });
 
+  const now = new Date();
   return {
     gameweek,
     alreadyPicked: Boolean(myPick),
     myPick,
     teamOptions,
     jokerAvailability,
-    windowOpen:
-      gameweek.status === "OPEN" && isWithinWindow(new Date(), gameweek.picksOpenAt, gameweek.pickDeadlineAt),
+    windowOpen: gameweek.status === "OPEN" && isWithinWindow(now, gameweek.picksOpenAt, gameweek.pickDeadlineAt),
+    picksOpenAtPassed: now.getTime() >= gameweek.picksOpenAt.getTime(),
   };
 }

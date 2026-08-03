@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/current-user";
 import { getPickContext, getPicksReveal, getRelevantGameweek } from "@/lib/picks";
 import { getJokerHalf } from "@/lib/jokers";
@@ -52,12 +53,29 @@ export default async function HomePage() {
   }
 
   if (gameweek.status === "UPCOMING") {
+    // Status is a separate, manually-set field — editing the deadlines
+    // doesn't flip it. If picksOpenAt has already passed, a countdown to it
+    // would just show a broken "0 sec" forever, so surface what's actually
+    // going on instead.
     return (
       <div className="space-y-4">
         {heading}
-        <div className="card py-10">
-          <Countdown target={gameweek.picksOpenAt.toISOString()} label="Picks open in" />
-        </div>
+        {context.picksOpenAtPassed ? (
+          <div className="card space-y-3 py-10 text-center">
+            <p className="text-sm text-muted">
+              Picks were due to open — this gameweek just needs switching to &quot;Open&quot;.
+            </p>
+            {user.role === "ADMIN" && (
+              <Link href={`/admin/gameweeks/${gameweek.id}`} className="btn-primary inline-flex">
+                Open this gameweek
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="card py-10">
+            <Countdown target={gameweek.picksOpenAt.toISOString()} label="Picks open in" />
+          </div>
+        )}
       </div>
     );
   }
