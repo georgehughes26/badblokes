@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeGameweekDeadlines, isBefore, isWithinWindow, londonWallTimeToUtc } from "./time";
+import {
+  computeGameweekDeadlines,
+  isBefore,
+  isWithinWindow,
+  londonWallTimeToUtc,
+  parseLondonDatetimeLocal,
+  toLondonDatetimeLocal,
+} from "./time";
 
 describe("londonWallTimeToUtc — BST/GMT correctness", () => {
   it("Friday 12:00 in October (BST, UTC+1) is 11:00 UTC", () => {
@@ -52,6 +59,24 @@ describe("computeGameweekDeadlines — BST/GMT boundary weekends", () => {
 
   it("rejects a date that isn't a Saturday", () => {
     expect(() => computeGameweekDeadlines(2026, 10, 23)).toThrow();
+  });
+});
+
+describe("datetime-local round trip (admin deadline-override form)", () => {
+  it("parses a datetime-local value as Europe/London wall time (BST)", () => {
+    const utc = parseLondonDatetimeLocal("2026-08-08T15:00");
+    expect(utc.toISOString()).toBe("2026-08-08T14:00:00.000Z");
+  });
+
+  it("parses a datetime-local value as Europe/London wall time (GMT)", () => {
+    const utc = parseLondonDatetimeLocal("2026-12-25T15:00");
+    expect(utc.toISOString()).toBe("2026-12-25T15:00:00.000Z");
+  });
+
+  it("round-trips back to the same wall-clock string", () => {
+    const original = "2026-08-08T15:00";
+    const utc = parseLondonDatetimeLocal(original);
+    expect(toLondonDatetimeLocal(utc)).toBe(original);
   });
 });
 

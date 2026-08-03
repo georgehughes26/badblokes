@@ -44,6 +44,25 @@ export function computeGameweekDeadlines(saturdayYear: number, saturdayMonth: nu
   };
 }
 
+/**
+ * Parse an HTML `datetime-local` input value ("YYYY-MM-DDTHH:mm") as a
+ * Europe/London wall-clock time. `datetime-local` carries no timezone of
+ * its own — when an admin types a kick-off time they mean London time, not
+ * whatever timezone the server or their browser happens to be in.
+ */
+export function parseLondonDatetimeLocal(value: string): Date {
+  const dt = DateTime.fromISO(value, { zone: LONDON_ZONE });
+  if (!dt.isValid) {
+    throw new Error(`Invalid datetime-local value: ${value}`);
+  }
+  return dt.toUTC().toJSDate();
+}
+
+/** Format a UTC instant for editing in an HTML `datetime-local` input, in Europe/London. */
+export function toLondonDatetimeLocal(date: Date): string {
+  return DateTime.fromJSDate(date).setZone(LONDON_ZONE).toFormat("yyyy-MM-dd'T'HH:mm");
+}
+
 /** Format a UTC instant for display in Europe/London. */
 export function formatLondon(date: Date, fmt = "EEE d MMM, HH:mm"): string {
   return DateTime.fromJSDate(date).setZone(LONDON_ZONE).toFormat(fmt);
