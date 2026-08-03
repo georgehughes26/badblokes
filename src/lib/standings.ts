@@ -14,15 +14,17 @@ export interface StandingRow {
 /**
  * Aggregate Result rows into a standings table, optionally restricted to a
  * subset of gameweeks (e.g. the last 4 settled ones, for Gambler of the
- * Month). Sort order matches the spec: points desc, then fewest fines, then
- * most wins.
+ * Month). Every active user appears even before any gameweek has settled —
+ * seeded at zero, so the table is never empty. Sort order matches the spec:
+ * points desc, then fewest fines, then most wins, then name (so an all-zero
+ * table reads alphabetically instead of in arbitrary insertion order).
  */
 export async function computeStandings(seasonId: string, gameweekIds?: string[]): Promise<StandingRow[]> {
   const gameweekFilter = gameweekIds
     ? { id: { in: gameweekIds } }
     : { seasonId, status: "SETTLED" as const };
 
-  const [results, jokerCounts] = await Promise.all([
+  const [results, jokerCounts, activeUsers] = await Promise.all([
     prisma.result.findMany({
       where: { gameweek: gameweekFilter },
       include: { user: true },
@@ -32,10 +34,24 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
       where: { isJoker: true, gameweek: gameweekIds ? { id: { in: gameweekIds } } : { seasonId } },
       _count: { _all: true },
     }),
+    prisma.user.findMany({ where: { active: true } }),
   ]);
   const jokerByUser = new Map(jokerCounts.map((j) => [j.userId, j._count._all]));
 
   const rows = new Map<string, StandingRow>();
+  for (const user of activeUsers) {
+    rows.set(user.id, {
+      userId: user.id,
+      name: user.name,
+      played: 0,
+      won: 0,
+      lost: 0,
+      points: 0,
+      fines: 0,
+      jokersUsed: jokerByUser.get(user.id) ?? 0,
+    });
+  }
+
   for (const result of results) {
     const row = rows.get(result.userId) ?? {
       userId: result.userId,
@@ -57,7 +73,9 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
     rows.set(result.userId, row);
   }
 
-  return [...rows.values()].sort((a, b) => b.points - a.points || a.fines - b.fines || b.won - a.won);
+  return [...rows.values()].sort(
+    (a, b) => b.points - a.points || a.fines - b.fines || b.won - a.won || a.name.localeCompare(b.name),
+  );
 }
 
 export const GOTM_WINDOW_GAMEWEEKS = 4;
