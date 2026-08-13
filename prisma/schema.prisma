@@ -107,9 +107,9 @@ model Gameweek {
   seasonId       String
   season         Season         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   weekNumber     Int
-  picksOpenAt    DateTime // Friday 12:00 Europe/London (stored UTC)
-  pickDeadlineAt DateTime // Friday 23:59 Europe/London
-  slipDeadlineAt DateTime // Saturday 15:00 Europe/London
+  picksOpenAt    DateTime // Day before kick-off, 12:00 Europe/London (stored UTC)
+  pickDeadlineAt DateTime // Day before kick-off, 23:59 Europe/London
+  slipDeadlineAt DateTime // Kick-off day, 15:00 Europe/London
   status         GameweekStatus @default(UPCOMING)
   settledAt      DateTime?
   createdAt      DateTime       @default(now())

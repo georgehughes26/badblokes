@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createGameweek } from "@/lib/actions/admin";
 import { ErrorBanner, SuccessBanner } from "@/components/banners";
 import { formatLondon } from "@/lib/time";
+import { getCurrentGameweekPhase } from "@/lib/gameweek-phase";
 
 const STATUS_PILL: Record<string, string> = {
   UPCOMING: "pill-muted",
@@ -52,38 +53,42 @@ export default async function AdminGameweeksPage({
           <input id="weekNumber" name="weekNumber" type="number" min={1} className="input" required />
         </div>
         <div>
-          <label className="label" htmlFor="saturdayDate">
-            Saturday kick-off date
+          <label className="label" htmlFor="kickoffDate">
+            Kick-off date
           </label>
-          <input id="saturdayDate" name="saturdayDate" type="date" className="input" required />
+          <input id="kickoffDate" name="kickoffDate" type="date" className="input" required />
         </div>
         <button type="submit" className="btn-primary">
           Create
         </button>
       </form>
       <p className="-mt-3 text-xs text-muted">
-        Deadlines are set automatically: picks open the Friday before at 12:00, the pick deadline is that Friday
-        23:59, and the slip deadline / kick-off is 15:00 that Saturday — all Europe/London.
+        Deadlines are set automatically: picks open the day before at 12:00, the pick deadline is that day 23:59,
+        and the slip deadline / kick-off is 15:00 on the date you pick — all Europe/London. Any day works, not just
+        Saturdays. Gameweeks open and close on their own — no need to flip a switch.
       </p>
 
       <div className="card divide-y divide-border p-0">
-        {gameweeks.map((gw) => (
-          <Link
-            key={gw.id}
-            href={`/admin/gameweeks/${gw.id}`}
-            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-surface-raised"
-          >
-            <div>
-              <p className="text-sm font-semibold">
-                {gw.season.name} — GW{gw.weekNumber}
-              </p>
-              <p className="text-xs text-muted">
-                Kick-off {formatLondon(gw.slipDeadlineAt)} · {gw._count.picks} picks
-              </p>
-            </div>
-            <span className={STATUS_PILL[gw.status]}>{gw.status}</span>
-          </Link>
-        ))}
+        {gameweeks.map((gw) => {
+          const phase = getCurrentGameweekPhase(gw);
+          return (
+            <Link
+              key={gw.id}
+              href={`/admin/gameweeks/${gw.id}`}
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-surface-raised"
+            >
+              <div>
+                <p className="text-sm font-semibold">
+                  {gw.season.name} — GW{gw.weekNumber}
+                </p>
+                <p className="text-xs text-muted">
+                  Kick-off {formatLondon(gw.slipDeadlineAt)} · {gw._count.picks} picks
+                </p>
+              </div>
+              <span className={STATUS_PILL[phase]}>{phase}</span>
+            </Link>
+          );
+        })}
         {gameweeks.length === 0 && <p className="px-4 py-6 text-center text-sm text-muted">No gameweeks yet.</p>}
       </div>
     </div>

@@ -114,18 +114,18 @@ export async function createGameweek(formData: FormData) {
   const parsed = createGameweekSchema.safeParse({
     seasonId: formData.get("seasonId"),
     weekNumber: formData.get("weekNumber"),
-    saturdayDate: formData.get("saturdayDate"),
+    kickoffDate: formData.get("kickoffDate"),
   });
   if (!parsed.success) fail("/admin/gameweeks", issueMessage(parsed.error.issues));
 
-  const { seasonId, weekNumber, saturdayDate } = parsed.data;
-  const [year, month, day] = saturdayDate.split("-").map(Number);
+  const { seasonId, weekNumber, kickoffDate } = parsed.data;
+  const [year, month, day] = kickoffDate.split("-").map(Number);
 
   let deadlines;
   try {
     deadlines = computeGameweekDeadlines(year, month, day);
   } catch {
-    fail("/admin/gameweeks", "That date isn't a Saturday");
+    fail("/admin/gameweeks", "That's not a valid date");
   }
 
   try {

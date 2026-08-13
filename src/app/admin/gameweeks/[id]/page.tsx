@@ -4,8 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { updateGameweekDeadlines, updateGameweekStatus } from "@/lib/actions/admin";
 import { ErrorBanner, SuccessBanner } from "@/components/banners";
 import { formatLondon, toLondonDatetimeLocal } from "@/lib/time";
+import { getCurrentGameweekPhase } from "@/lib/gameweek-phase";
 
-const STATUSES = ["UPCOMING", "OPEN", "LOCKED", "SETTLED"] as const;
+const PHASE_PILL: Record<string, string> = {
+  UPCOMING: "pill-muted",
+  OPEN: "pill-green",
+  LOCKED: "pill-amber",
+  SETTLED: "pill-muted",
+};
 
 export default async function AdminGameweekDetailPage({
   params,
@@ -26,6 +32,9 @@ export default async function AdminGameweekDetailPage({
   });
   if (!gameweek) notFound();
 
+  const phase = getCurrentGameweekPhase(gameweek);
+  const isManuallyLocked = gameweek.status === "LOCKED";
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -33,7 +42,9 @@ export default async function AdminGameweekDetailPage({
           <h1 className="text-lg font-bold">
             {gameweek.season.name} — Gameweek {gameweek.weekNumber}
           </h1>
-          <p className="text-sm text-muted">Status: {gameweek.status}</p>
+          <p className="mt-1 text-sm text-muted">
+            <span className={PHASE_PILL[phase]}>{phase}</span>
+          </p>
         </div>
         <Link href={`/admin/results/${gameweek.id}`} className="btn-primary">
           Enter results
@@ -44,21 +55,24 @@ export default async function AdminGameweekDetailPage({
 
       <section className="card space-y-3">
         <h2 className="text-sm font-semibold text-muted">Status</h2>
-        <div className="flex flex-wrap gap-2">
-          {STATUSES.map((status) => (
-            <form key={status} action={updateGameweekStatus}>
-              <input type="hidden" name="gameweekId" value={gameweek.id} />
-              <input type="hidden" name="status" value={status} />
-              <button
-                type="submit"
-                disabled={gameweek.status === status}
-                className={gameweek.status === status ? "btn-primary" : "btn-secondary"}
-              >
-                {status}
-              </button>
-            </form>
-          ))}
-        </div>
+        <p className="text-sm text-muted">
+          {phase === "UPCOMING" && `Opens automatically at ${formatLondon(gameweek.picksOpenAt)}.`}
+          {phase === "OPEN" && `Picks close automatically at ${formatLondon(gameweek.pickDeadlineAt)}.`}
+          {phase === "LOCKED" &&
+            (isManuallyLocked
+              ? "Manually locked — won't reopen on its own until you unlock it."
+              : "Pick deadline has passed — waiting on results.")}
+          {phase === "SETTLED" && "Results are in for this gameweek."}
+        </p>
+        {phase !== "SETTLED" && (
+          <form action={updateGameweekStatus}>
+            <input type="hidden" name="gameweekId" value={gameweek.id} />
+            <input type="hidden" name="status" value={isManuallyLocked ? "UPCOMING" : "LOCKED"} />
+            <button type="submit" className="btn-secondary">
+              {isManuallyLocked ? "Unlock (resume automatic timing)" : "Lock picks now"}
+            </button>
+          </form>
+        )}
       </section>
 
       <section className="card space-y-3">

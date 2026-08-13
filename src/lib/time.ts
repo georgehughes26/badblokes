@@ -26,21 +26,27 @@ export function londonWallTimeToUtc(
   return dt.toUTC().toJSDate();
 }
 
-/** Given the Saturday kick-off date of a gameweek, derive its three deadlines (all as UTC Dates). */
-export function computeGameweekDeadlines(saturdayYear: number, saturdayMonth: number, saturdayDay: number) {
-  const saturday = DateTime.fromObject(
-    { year: saturdayYear, month: saturdayMonth, day: saturdayDay },
+/**
+ * Given a gameweek's kick-off date (any day of the week — fixtures aren't
+ * always a Saturday), derive its three deadlines (all as UTC Dates): picks
+ * open the day before at 12:00, the pick deadline is that same day at
+ * 23:59, and the slip deadline / kick-off is 15:00 on the kick-off date
+ * itself — all Europe/London.
+ */
+export function computeGameweekDeadlines(kickoffYear: number, kickoffMonth: number, kickoffDay: number) {
+  const kickoff = DateTime.fromObject(
+    { year: kickoffYear, month: kickoffMonth, day: kickoffDay },
     { zone: LONDON_ZONE },
   );
-  if (!saturday.isValid || saturday.weekday !== 6) {
-    throw new Error("saturdayYear/Month/Day must be a Saturday in Europe/London");
+  if (!kickoff.isValid) {
+    throw new Error(`Invalid kick-off date: ${kickoff.invalidReason} ${kickoff.invalidExplanation}`);
   }
-  const friday = saturday.minus({ days: 1 });
+  const dayBefore = kickoff.minus({ days: 1 });
 
   return {
-    picksOpenAt: friday.set({ hour: 12, minute: 0, second: 0, millisecond: 0 }).toUTC().toJSDate(),
-    pickDeadlineAt: friday.set({ hour: 23, minute: 59, second: 0, millisecond: 0 }).toUTC().toJSDate(),
-    slipDeadlineAt: saturday.set({ hour: 15, minute: 0, second: 0, millisecond: 0 }).toUTC().toJSDate(),
+    picksOpenAt: dayBefore.set({ hour: 12, minute: 0, second: 0, millisecond: 0 }).toUTC().toJSDate(),
+    pickDeadlineAt: dayBefore.set({ hour: 23, minute: 59, second: 0, millisecond: 0 }).toUTC().toJSDate(),
+    slipDeadlineAt: kickoff.set({ hour: 15, minute: 0, second: 0, millisecond: 0 }).toUTC().toJSDate(),
   };
 }
 
@@ -80,7 +86,7 @@ export function isBefore(now: Date, deadline: Date): boolean {
   return now.getTime() < deadline.getTime();
 }
 
-/** Is this instant exactly 15:00 in Europe/London? Used to filter imported fixtures down to the pickable Saturday 3pm slot. */
+/** Is this instant exactly 15:00 in Europe/London? Used to filter imported fixtures down to the pickable 3pm kick-off slot. */
 export function isThreePmLondon(date: Date): boolean {
   const dt = DateTime.fromJSDate(date).setZone(LONDON_ZONE);
   return dt.hour === 15 && dt.minute === 0;

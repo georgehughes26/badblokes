@@ -14,7 +14,7 @@ export default async function FinesPage() {
     prisma.fineLedgerEntry.findMany({ where: { paid: false } }),
     prisma.fineLedgerEntry.groupBy({ by: ["userId"], _sum: { amount: true } }),
     prisma.gameweek.findFirst({
-      where: { status: { in: ["OPEN", "UPCOMING"] } },
+      where: { status: { not: "SETTLED" } },
       orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "asc" }],
     }),
   ]);

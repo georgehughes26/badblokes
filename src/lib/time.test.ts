@@ -58,8 +58,16 @@ describe("computeGameweekDeadlines — BST/GMT boundary weekends", () => {
     expect(d.slipDeadlineAt.toISOString()).toBe("2026-04-04T14:00:00.000Z");
   });
 
-  it("rejects a date that isn't a Saturday", () => {
-    expect(() => computeGameweekDeadlines(2026, 10, 23)).toThrow();
+  it("accepts a Sunday kick-off just as readily as a Saturday one", () => {
+    // Sun 9 Aug 2026 — solidly BST, no DST boundary in play.
+    const d = computeGameweekDeadlines(2026, 8, 9);
+    expect(d.picksOpenAt.toISOString()).toBe("2026-08-08T11:00:00.000Z");
+    expect(d.pickDeadlineAt.toISOString()).toBe("2026-08-08T22:59:00.000Z");
+    expect(d.slipDeadlineAt.toISOString()).toBe("2026-08-09T14:00:00.000Z");
+  });
+
+  it("rejects a genuinely invalid calendar date", () => {
+    expect(() => computeGameweekDeadlines(2026, 2, 30)).toThrow();
   });
 });
 

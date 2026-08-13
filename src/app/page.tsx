@@ -43,10 +43,16 @@ export default async function HomePage() {
     return (
       <div className="space-y-4">
         {heading}
-        {!slipDeadlinePassed && (
+        {context.phase === "OPEN" ? (
           <div className="card py-6">
-            <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Picks lock in" />
+            <Countdown target={gameweek.pickDeadlineAt.toISOString()} label="Picks close in" />
           </div>
+        ) : (
+          !slipDeadlinePassed && (
+            <div className="card py-6">
+              <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />
+            </div>
+          )
         )}
         <div className="card flex flex-col items-center gap-3 py-10 text-center">
           <p className="pill-green">You&apos;re in for this week</p>
@@ -82,35 +88,21 @@ export default async function HomePage() {
     );
   }
 
-  if (gameweek.status === "UPCOMING") {
-    // Status is a separate, manually-set field — editing the deadlines
-    // doesn't flip it. If picksOpenAt has already passed, a countdown to it
-    // would just show a broken "0 sec" forever, so surface what's actually
-    // going on instead.
+  if (context.phase === "UPCOMING") {
+    // Phase is derived from the clock (lib/gameweek-phase.ts), so this
+    // branch structurally can't be entered once picksOpenAt has passed —
+    // no more "stuck showing a broken 0 sec countdown" scenario.
     return (
       <div className="space-y-4">
         {heading}
-        {context.picksOpenAtPassed ? (
-          <div className="card space-y-3 py-10 text-center">
-            <p className="text-sm text-muted">
-              Picks were due to open — this gameweek just needs switching to &quot;Open&quot;.
-            </p>
-            {user.role === "ADMIN" && (
-              <Link href={`/admin/gameweeks/${gameweek.id}`} className="btn-primary inline-flex">
-                Open this gameweek
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="card py-10">
-            <Countdown target={gameweek.picksOpenAt.toISOString()} label="Picks open in" />
-          </div>
-        )}
+        <div className="card py-10">
+          <Countdown target={gameweek.picksOpenAt.toISOString()} label="Picks open in" />
+        </div>
       </div>
     );
   }
 
-  if (gameweek.status === "OPEN" && context.windowOpen) {
+  if (context.phase === "OPEN") {
     const jokerHalf = getJokerHalf(gameweek.pickDeadlineAt, gameweek.season.jokerSplitDate);
     return (
       <div className="space-y-4">

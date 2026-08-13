@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPreviousGameweekPickTeamId, getPreviousJokerHalves } from "@/lib/picks";
 import { isTeamOnCooldown } from "@/lib/cooldown";
 import { canPlayJoker, getJokerHalf } from "@/lib/jokers";
-import { isWithinWindow } from "@/lib/time";
+import { deriveGameweekPhase } from "@/lib/gameweek-phase";
 import { submitPickSchema } from "@/lib/validation/picks";
 
 export async function POST(request: Request) {
@@ -31,9 +31,11 @@ export async function POST(request: Request) {
   }
 
   // Hard-enforced window — never trust the client clock, and there's no
-  // "late but not yet locked" grace period. Server time only.
+  // "late but not yet locked" grace period. Server time only. Phase is
+  // derived from the clock (see lib/gameweek-phase.ts), so this closes
+  // automatically at the deadline without needing an admin to lock it.
   const now = new Date();
-  if (gameweek.status !== "OPEN" || !isWithinWindow(now, gameweek.picksOpenAt, gameweek.pickDeadlineAt)) {
+  if (deriveGameweekPhase(gameweek, now) !== "OPEN") {
     return NextResponse.json({ error: "Picks are closed for this gameweek" }, { status: 403 });
   }
 

@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { isTeamOnCooldown } from "@/lib/cooldown";
 import { getJokerAvailability, type JokerHalf, getJokerHalf } from "@/lib/jokers";
-import { isWithinWindow } from "@/lib/time";
+import { deriveGameweekPhase } from "@/lib/gameweek-phase";
+import type { GameweekStatus } from "@prisma/client";
 
 export interface TeamOption {
   id: string;
@@ -60,35 +61,29 @@ export interface PickContext {
   myPick: GameweekWithPicks["picks"][number] | null;
   teamOptions: TeamOption[];
   jokerAvailability: ReturnType<typeof getJokerAvailability>;
-  windowOpen: boolean;
-  /** Has picksOpenAt already passed? Lets the UI tell "still upcoming" apart from "stuck waiting on a manual status flip". */
-  picksOpenAtPassed: boolean;
+  /** The gameweek's live phase, derived from the clock — see lib/gameweek-phase.ts. */
+  phase: GameweekStatus;
   /** Has slipDeadlineAt already passed? Gates the "submit your bet slip" CTA and countdown on the already-picked view. */
   slipDeadlinePassed: boolean;
 }
 
-/** The gameweek a player should be looking at right now: the earliest OPEN one. */
-export async function getCurrentOpenGameweek() {
-  return prisma.gameweek.findFirst({
-    where: { status: "OPEN" },
-    orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "asc" }],
-    include: { season: true },
-  });
-}
-
 /**
- * The gameweek the player's home screen should show right now: the OPEN one
- * if there is one, otherwise the soonest UPCOMING one (so we can still show
- * a "picks open in..." countdown before the window opens).
+ * The gameweek the player's home screen should show right now: whichever
+ * unsettled gameweek is currently OPEN for picking, otherwise the soonest
+ * still-UPCOMING one (so we can show a "picks open in..." countdown before
+ * the window opens). Phase is derived from the clock, not a stored status —
+ * nobody needs to manually "open" a gameweek for it to show up here.
  */
 export async function getRelevantGameweek() {
-  const open = await getCurrentOpenGameweek();
-  if (open) return open;
-  return prisma.gameweek.findFirst({
-    where: { status: "UPCOMING" },
+  const now = new Date();
+  const candidates = await prisma.gameweek.findMany({
+    where: { status: { not: "SETTLED" } },
     orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "asc" }],
     include: { season: true },
   });
+  const open = candidates.find((gw) => deriveGameweekPhase(gw, now) === "OPEN");
+  if (open) return open;
+  return candidates.find((gw) => deriveGameweekPhase(gw, now) === "UPCOMING") ?? null;
 }
 
 /** Every previous joker half a player has used in this season (locked-in picks only). */
@@ -184,8 +179,7 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
     myPick,
     teamOptions,
     jokerAvailability,
-    windowOpen: gameweek.status === "OPEN" && isWithinWindow(now, gameweek.picksOpenAt, gameweek.pickDeadlineAt),
-    picksOpenAtPassed: now.getTime() >= gameweek.picksOpenAt.getTime(),
+    phase: deriveGameweekPhase(gameweek, now),
     slipDeadlinePassed: now.getTime() >= gameweek.slipDeadlineAt.getTime(),
   };
 }

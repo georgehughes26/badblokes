@@ -26,14 +26,18 @@ export const createSeasonSchema = z
 export const createGameweekSchema = z.object({
   seasonId: z.string().min(1, "Season is required"),
   weekNumber: z.coerce.number().int().min(1, "Week number must be at least 1"),
-  saturdayDate: z
+  kickoffDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the Saturday this gameweek's fixtures kick off"),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the date this gameweek's fixtures kick off"),
 });
 
+// Only the two manual-override states are settable through this action —
+// OPEN/LOCKED-by-time are derived automatically (see lib/gameweek-phase.ts)
+// and SETTLED only ever happens via the results flow, which computes real
+// points/fines rather than just flipping a label.
 export const gameweekStatusSchema = z.object({
   gameweekId: z.string().min(1),
-  status: z.enum(["UPCOMING", "OPEN", "LOCKED", "SETTLED"]),
+  status: z.enum(["UPCOMING", "LOCKED"]),
 });
 
 export const gameweekDeadlinesSchema = z
