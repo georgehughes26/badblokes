@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/current-user";
 import { getPickContext, getPicksReveal, getRelevantGameweek } from "@/lib/picks";
+import { getGameweekSummary } from "@/lib/gameweek-summary";
 import { getJokerHalf } from "@/lib/jokers";
 import { Countdown } from "@/components/countdown";
 import { PickScreen } from "@/components/pick-screen";
 import { PicksReveal } from "@/components/picks-reveal";
+import { GameweekSummaryView } from "@/components/gameweek-summary";
 import { TeamBadge } from "@/components/team-badge";
 
 export default async function HomePage() {
@@ -35,25 +37,24 @@ export default async function HomePage() {
     </p>
   );
 
-  if (context.alreadyPicked && context.myPick) {
+  // Keep showing "you've picked" (with the kick-off countdown and slip CTA)
+  // right up until kick-off, even after picking closes — that's still the
+  // most useful thing for the viewer. Once kick-off has passed, everyone
+  // (picked or not) drops into the in-play recap below instead.
+  if (context.alreadyPicked && context.myPick && !context.slipDeadlinePassed) {
     const pick = context.myPick;
     const picksSoFar = getPicksReveal(context.gameweek);
-    const slipDeadlinePassed = context.slipDeadlinePassed;
     const slipSubmitted = Boolean(pick.betSlip?.submittedAt);
     return (
       <div className="space-y-4">
         {heading}
-        {context.phase === "OPEN" ? (
-          <div className="card py-6">
+        <div className="card py-6">
+          {context.phase === "OPEN" ? (
             <Countdown target={gameweek.pickDeadlineAt.toISOString()} label="Picks close in" />
-          </div>
-        ) : (
-          !slipDeadlinePassed && (
-            <div className="card py-6">
-              <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />
-            </div>
-          )
-        )}
+          ) : (
+            <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />
+          )}
+        </div>
         <div className="card flex flex-col items-center gap-3 py-10 text-center">
           <p className="pill-green">You&apos;re in for this week</p>
           <TeamBadge name={pick.team.name} shortName={pick.team.shortName} crestUrl={pick.team.crestUrl} size="lg" />
@@ -65,14 +66,10 @@ export default async function HomePage() {
             {slipSubmitted ? (
               <>
                 <p className="pill-green">Bet slip submitted</p>
-                {!slipDeadlinePassed && (
-                  <Link href={`/slip/${pick.betSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
-                    Update your bet slip
-                  </Link>
-                )}
+                <Link href={`/slip/${pick.betSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
+                  Update your bet slip
+                </Link>
               </>
-            ) : slipDeadlinePassed ? (
-              <p className="pill-red">Slip deadline passed — no slip submitted</p>
             ) : (
               <>
                 <p className="text-sm text-muted">Don&apos;t forget to log proof of your actual bet.</p>
@@ -120,11 +117,27 @@ export default async function HomePage() {
     );
   }
 
+  // Kick-off has passed — games are properly under way (or already
+  // settled), and getRelevantGameweek only ever falls back to this
+  // gameweek while no newer one exists, so this naturally gives way to the
+  // countdown above the moment a new gameweek is created.
+  if (context.slipDeadlinePassed || context.phase === "SETTLED") {
+    const summary = await getGameweekSummary(gameweek.id);
+    if (summary) {
+      return (
+        <div className="space-y-4">
+          {heading}
+          <GameweekSummaryView summary={summary} currentUserId={user.id} />
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="space-y-4">
       {heading}
       <div className="card text-center">
-        <p className="text-sm text-muted">Picks are closed for this gameweek — hang tight for results.</p>
+        <p className="text-sm text-muted">Picks are closed for this gameweek — hang tight for kick-off.</p>
       </div>
     </div>
   );

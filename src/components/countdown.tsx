@@ -17,14 +17,28 @@ function formatRemaining(ms: number): string {
 
 export function Countdown({ target, label }: { target: string; label: string }) {
   const targetMs = new Date(target).getTime();
-  const [remaining, setRemaining] = useState(() => targetMs - Date.now());
+  // Server and the pre-hydration client render must produce identical
+  // markup, so the very first paint can't depend on Date.now() at all —
+  // only mount client-side and start ticking once hydration is done.
+  const [mounted, setMounted] = useState(false);
+  const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setRemaining(targetMs - Date.now()), 1000);
-    return () => clearInterval(interval);
+    function tick() {
+      setMounted(true);
+      setRemaining(targetMs - Date.now());
+    }
+    // Deferred via setTimeout (not called directly in the effect body) so
+    // the first update lands as a real, separate commit after mount.
+    const kickoff = setTimeout(tick, 0);
+    const interval = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(kickoff);
+      clearInterval(interval);
+    };
   }, [targetMs]);
 
-  const urgent = remaining > 0 && remaining < 60 * 60 * 1000;
+  const urgent = mounted && remaining > 0 && remaining < 60 * 60 * 1000;
 
   return (
     <div className="text-center">
@@ -35,7 +49,7 @@ export function Countdown({ target, label }: { target: string; label: string }) 
           urgent ? "text-warn" : "text-accent",
         ].join(" ")}
       >
-        {formatRemaining(remaining)}
+        {mounted ? formatRemaining(remaining) : " "}
       </p>
     </div>
   );

@@ -73,6 +73,12 @@ export interface PickContext {
  * still-UPCOMING one (so we can show a "picks open in..." countdown before
  * the window opens). Phase is derived from the clock, not a stored status —
  * nobody needs to manually "open" a gameweek for it to show up here.
+ *
+ * If neither exists (picks have closed and nothing new has been created
+ * yet), falls back to the most recent gameweek overall — LOCKED mid-games
+ * or already SETTLED — so the home page can show an in-play/recap view
+ * instead of going blank. That fallback stops being reachable the instant a
+ * newer gameweek exists, since it'll win one of the checks above.
  */
 export async function getRelevantGameweek() {
   const now = new Date();
@@ -83,7 +89,13 @@ export async function getRelevantGameweek() {
   });
   const open = candidates.find((gw) => deriveGameweekPhase(gw, now) === "OPEN");
   if (open) return open;
-  return candidates.find((gw) => deriveGameweekPhase(gw, now) === "UPCOMING") ?? null;
+  const upcoming = candidates.find((gw) => deriveGameweekPhase(gw, now) === "UPCOMING");
+  if (upcoming) return upcoming;
+
+  return prisma.gameweek.findFirst({
+    orderBy: [{ season: { startDate: "desc" } }, { weekNumber: "desc" }],
+    include: { season: true },
+  });
 }
 
 /** Every previous joker half a player has used in this season (locked-in picks only). */
