@@ -6,6 +6,7 @@ import { getJokerHalf } from "@/lib/jokers";
 import { Countdown } from "@/components/countdown";
 import { PickScreen } from "@/components/pick-screen";
 import { PicksReveal } from "@/components/picks-reveal";
+import { EditPickPanel } from "@/components/edit-pick-panel";
 import { GameweekSummaryView } from "@/components/gameweek-summary";
 import { TeamBadge } from "@/components/team-badge";
 
@@ -37,14 +38,15 @@ export default async function HomePage() {
     </p>
   );
 
-  // Keep showing "you've picked" (with the kick-off countdown and slip CTA)
-  // right up until kick-off, even after picking closes — that's still the
-  // most useful thing for the viewer. Once kick-off has passed, everyone
-  // (picked or not) drops into the in-play recap below instead.
+  // Keep showing "you've picked" right up until kick-off, even after
+  // picking closes — that's still the most useful thing for the viewer.
+  // Once kick-off has passed, everyone (picked or not) drops into the
+  // in-play recap below instead.
   if (context.alreadyPicked && context.myPick && !context.slipDeadlinePassed) {
     const pick = context.myPick;
     const picksSoFar = getPicksReveal(context.gameweek);
     const slipSubmitted = Boolean(pick.betSlip?.submittedAt);
+    const jokerHalf = getJokerHalf(gameweek.pickDeadlineAt, gameweek.season.jokerSplitDate);
     return (
       <div className="space-y-4">
         {heading}
@@ -61,24 +63,43 @@ export default async function HomePage() {
           <p className="font-display text-3xl font-bold">You&apos;ve picked {pick.team.name}</p>
           {pick.isJoker && <p className="pill-amber">Joker played</p>}
         </div>
-        {pick.betSlip && (
-          <div className="card flex flex-col items-center gap-3 py-6 text-center">
-            {slipSubmitted ? (
-              <>
-                <p className="pill-green">Bet slip submitted</p>
-                <Link href={`/slip/${pick.betSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
-                  Update your bet slip
-                </Link>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted">Don&apos;t forget to log proof of your actual bet.</p>
-                <Link href={`/slip/${pick.betSlip.token}`} className="btn-primary">
-                  Submit your bet slip
-                </Link>
-              </>
-            )}
-          </div>
+        {context.phase === "OPEN" ? (
+          // Picks aren't locked yet — you can still change your mind about
+          // the joker, and swap teams too once everyone else has picked.
+          <EditPickPanel
+            pickId={pick.id}
+            currentTeamId={pick.team.id}
+            currentTeamName={pick.team.name}
+            currentTeamShortName={pick.team.shortName}
+            currentTeamCrestUrl={pick.team.crestUrl}
+            currentIsJoker={pick.isJoker}
+            teamOptions={context.teamOptions}
+            jokerAvailable={context.jokerAvailability.available}
+            jokerHalfLabel={jokerHalf === "H1" ? "first half of the season" : "second half of the season"}
+            canChangeTeam={context.everyonePicked}
+          />
+        ) : (
+          // Picks are locked and it's counting down to kick-off — this is
+          // when the bet slip (proof of the real bet) is actually needed.
+          pick.betSlip && (
+            <div className="card flex flex-col items-center gap-3 py-6 text-center">
+              {slipSubmitted ? (
+                <>
+                  <p className="pill-green">Bet slip submitted</p>
+                  <Link href={`/slip/${pick.betSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
+                    Update your bet slip
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted">Don&apos;t forget to log proof of your actual bet.</p>
+                  <Link href={`/slip/${pick.betSlip.token}`} className="btn-primary">
+                    Submit your bet slip
+                  </Link>
+                </>
+              )}
+            </div>
+          )
         )}
         <PicksReveal picks={picksSoFar} currentUserId={user.id} />
       </div>

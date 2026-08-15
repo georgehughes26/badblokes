@@ -65,6 +65,8 @@ export interface PickContext {
   phase: GameweekStatus;
   /** Has slipDeadlineAt already passed? Gates the "submit your bet slip" CTA and countdown on the already-picked view. */
   slipDeadlinePassed: boolean;
+  /** Has every active player picked? Gates the "change team" option once picking closes the info gap. */
+  everyonePicked: boolean;
 }
 
 /**
@@ -112,6 +114,16 @@ export async function getPreviousJokerHalves(
   return jokerPicks.map((p) => getJokerHalf(p.gameweek.pickDeadlineAt, jokerSplitDate));
 }
 
+/**
+ * Has every active player made a pick for this gameweek? Once true, nobody
+ * gains an information edge from reshuffling — everyone's picks are
+ * already public — so the "change team" option unlocks.
+ */
+export async function hasEveryonePicked(pickedUserIds: Set<string>): Promise<boolean> {
+  const activePlayers = await prisma.user.findMany({ where: { active: true, role: "PLAYER" }, select: { id: true } });
+  return activePlayers.every((p) => pickedUserIds.has(p.id));
+}
+
 /** The team the player picked in the immediately preceding gameweek of the same season, if any. */
 export async function getPreviousGameweekPickTeamId(
   userId: string,
@@ -150,7 +162,9 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
   );
 
   const teamOptions: TeamOption[] = teams.map((team) => {
-    const takenBy = gameweek.picks.find((p) => p.teamId === team.id);
+    // Your own current pick shouldn't show as "taken" — you're allowed to
+    // browse (and, once everyone's picked, reselect) it.
+    const takenBy = gameweek.picks.find((p) => p.teamId === team.id && p.userId !== userId);
     if (takenBy) {
       return {
         id: team.id,
@@ -185,6 +199,8 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
   });
 
   const now = new Date();
+  const pickedUserIds = new Set(gameweek.picks.map((p) => p.userId));
+  const everyonePicked = await hasEveryonePicked(pickedUserIds);
   return {
     gameweek,
     alreadyPicked: Boolean(myPick),
@@ -193,5 +209,6 @@ export async function getPickContext(userId: string, gameweekId: string): Promis
     jokerAvailability,
     phase: deriveGameweekPhase(gameweek, now),
     slipDeadlinePassed: now.getTime() >= gameweek.slipDeadlineAt.getTime(),
+    everyonePicked,
   };
 }
