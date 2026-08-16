@@ -10,18 +10,19 @@ function outcomeColor(label: string | null): string {
 }
 
 export function GameweekSummaryView({ summary, currentUserId }: { summary: GameweekSummary; currentUserId: string }) {
-  const { settled, rows, topScorerUserId, totalFines } = summary;
-  const topScorer = rows.find((r) => r.userId === topScorerUserId);
+  const { settled, rows, winnersCount, totalFines } = summary;
 
   return (
     <div className="space-y-4">
       <div className="card space-y-1.5 py-6 text-center">
         {settled ? <p className="pill-green mx-auto w-fit">Settled</p> : <p className="pill-amber mx-auto w-fit">In play</p>}
         {!settled && <p className="mt-1 text-sm text-muted">Games are underway — check back once full-time results are in.</p>}
-        {settled && topScorer && (
+        {settled && (
           <p className="text-sm text-muted">
-            <span className="font-semibold text-foreground">{topScorer.userName}</span> top scored this week with{" "}
-            <span className="font-semibold text-foreground">{topScorer.points}</span> pts
+            <span className="font-semibold text-foreground">
+              {winnersCount} {winnersCount === 1 ? "winner" : "winners"}
+            </span>{" "}
+            this week
           </p>
         )}
         {settled && totalFines > 0 && (
@@ -38,8 +39,7 @@ export function GameweekSummaryView({ summary, currentUserId }: { summary: Gamew
         <div className="divide-y divide-border">
           {rows.map((row: GameweekSummaryRow) => {
             const isYou = row.userId === currentUserId;
-            const isTopScorer = settled && row.userId === topScorerUserId;
-            const rowBg = isYou ? "bg-accent/10" : isTopScorer ? "bg-warn/10" : undefined;
+            const rowBg = isYou ? "bg-accent/10" : undefined;
             return (
               <div key={row.userId} className={["flex items-center justify-between gap-3 px-4 py-3", rowBg].filter(Boolean).join(" ")}>
                 <span className="flex min-w-0 items-center gap-3">

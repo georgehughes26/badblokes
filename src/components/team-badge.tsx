@@ -16,13 +16,15 @@ export function TeamBadge({
   }[size];
 
   if (crestUrl) {
+    // Crests are square, so a rounded square (not a circle) shows the whole
+    // badge instead of masking off its corners.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={crestUrl} alt={name} className={`${sizeClasses} rounded-full bg-surface-raised object-contain`} />;
+    return <img src={crestUrl} alt={name} className={`${sizeClasses} rounded-lg bg-surface-raised object-contain`} />;
   }
 
   return (
     <span
-      className={`font-display flex shrink-0 items-center justify-center rounded-full bg-surface-raised font-bold text-muted ${sizeClasses}`}
+      className={`font-display flex shrink-0 items-center justify-center rounded-lg bg-surface-raised font-bold text-muted ${sizeClasses}`}
     >
       {shortName}
     </span>

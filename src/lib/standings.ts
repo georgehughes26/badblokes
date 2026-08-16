@@ -24,7 +24,10 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
     ? { id: { in: gameweekIds } }
     : { seasonId, status: "SETTLED" as const };
 
-  const [results, jokerCounts, activeUsers] = await Promise.all([
+  // Manual season adjustments (e.g. a carried-over penalty unrelated to any
+  // pick) only apply to the full season table — never to the GOTM rolling
+  // window, which is scoped to a handful of recent gameweeks.
+  const [results, jokerCounts, activeUsers, adjustments] = await Promise.all([
     prisma.result.findMany({
       where: { gameweek: gameweekFilter },
       include: { user: true },
@@ -35,6 +38,9 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
       _count: { _all: true },
     }),
     prisma.user.findMany({ where: { active: true } }),
+    gameweekIds
+      ? Promise.resolve([])
+      : prisma.pointsAdjustment.findMany({ where: { seasonId }, include: { user: true } }),
   ]);
   const jokerByUser = new Map(jokerCounts.map((j) => [j.userId, j._count._all]));
 
@@ -71,6 +77,21 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
     row.points += result.points;
     row.fines += result.fineAmount;
     rows.set(result.userId, row);
+  }
+
+  for (const adjustment of adjustments) {
+    const row = rows.get(adjustment.userId) ?? {
+      userId: adjustment.userId,
+      name: adjustment.user.name,
+      played: 0,
+      won: 0,
+      lost: 0,
+      points: 0,
+      fines: 0,
+      jokersUsed: jokerByUser.get(adjustment.userId) ?? 0,
+    };
+    row.points += adjustment.points;
+    rows.set(adjustment.userId, row);
   }
 
   return [...rows.values()].sort(

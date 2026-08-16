@@ -31,14 +31,15 @@ model User {
   active       Boolean  @default(true)
   joinedAt     DateTime @default(now())
 
-  sessions       Session[]
-  picks          Pick[]
-  results        Result[]
-  fineEntries    FineLedgerEntry[] @relation("FineOwner")
-  recordedFines  FineLedgerEntry[] @relation("FineRecorder")
-  createdInvites InviteCode[]      @relation("InviteCreator")
-  auditLogs      AuditLog[]
-  verifiedSlips  BetSlip[]         @relation("SlipVerifier")
+  sessions          Session[]
+  picks             Pick[]
+  results           Result[]
+  fineEntries       FineLedgerEntry[]  @relation("FineOwner")
+  recordedFines     FineLedgerEntry[]  @relation("FineRecorder")
+  createdInvites    InviteCode[]       @relation("InviteCreator")
+  auditLogs         AuditLog[]
+  verifiedSlips     BetSlip[]          @relation("SlipVerifier")
+  pointsAdjustments PointsAdjustment[]
 
   @@index([role])
 }
@@ -83,7 +84,8 @@ model Season {
   jokerSplitDate DateTime
   createdAt      DateTime @default(now())
 
-  gameweeks Gameweek[]
+  gameweeks         Gameweek[]
+  pointsAdjustments PointsAdjustment[]
 
   @@index([active])
 }
@@ -233,6 +235,24 @@ model FineLedgerEntry {
   @@unique([gameweekId, userId])
   @@index([userId])
   @@index([paid])
+}
+
+// A manual points adjustment applied to a player's season total, outside the
+// normal per-gameweek Result flow — e.g. a carried-over penalty from
+// something unrelated to picks. Deliberately has no fine/gameweek attached;
+// use FineLedgerEntry for anything that should also hit the pot.
+model PointsAdjustment {
+  id        String   @id @default(cuid())
+  seasonId  String
+  season    Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([seasonId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ export interface GameweekSummaryRow {
 export interface GameweekSummary {
   settled: boolean;
   rows: GameweekSummaryRow[];
-  topScorerUserId: string | null;
+  winnersCount: number;
   totalFines: number;
 }
 
@@ -72,8 +72,13 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
       teamCrestUrl: pick.team.crestUrl,
       isJoker: pick.isJoker,
       pickedAt: pick.createdAt,
+      // "Won" and "went 2 up" are independent admin-entered facts (a team can
+      // go 2 up and then draw or lose outright and it still counts as a win
+      // — see rules.ts) — combine them the same way settlePlayerGameweek
+      // does, or a 2-up-only pick would score points as a win but display
+      // as "Lost".
       outcomeLabel: pick.resultEnteredAt
-        ? pick.resultWon
+        ? pick.resultWon || pick.resultWentTwoUp
           ? pick.resultWentTwoUp
             ? "Won (EP)"
             : "Won"
@@ -114,15 +119,8 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
     return (a.pickedAt?.getTime() ?? 0) - (b.pickedAt?.getTime() ?? 0);
   });
 
-  let topScorerUserId: string | null = null;
-  if (settled) {
-    const withPoints = sorted.filter((r) => r.points !== null);
-    if (withPoints.length > 0) {
-      topScorerUserId = withPoints.reduce((best, r) => (r.points! > best.points! ? r : best)).userId;
-    }
-  }
-
+  const winnersCount = sorted.filter((r) => r.outcomeLabel === "Won" || r.outcomeLabel === "Won (EP)").length;
   const totalFines = gameweek.results.reduce((sum, r) => sum + r.fineAmount, 0);
 
-  return { settled, rows: sorted, topScorerUserId, totalFines };
+  return { settled, rows: sorted, winnersCount, totalFines };
 }
