@@ -1,12 +1,26 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type ClipboardEvent, type FormEvent } from "react";
+import { extractUrl } from "@/lib/extract-url";
 
 export function SlipForm({ token, initialUrl }: { token: string; initialUrl: string | null }) {
   const [url, setUrl] = useState(initialUrl ?? "");
   const [submitted, setSubmitted] = useState(Boolean(initialUrl));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
+    // Share-slip text usually comes as "Add To Your Bet Slip - https://…" —
+    // if the clipboard has more than just a bare link, pull the link out
+    // ourselves so the type="url" input doesn't silently reject the paste.
+    const pasted = e.clipboardData.getData("text");
+    const extracted = extractUrl(pasted);
+    if (extracted && extracted !== pasted.trim()) {
+      e.preventDefault();
+      setUrl(extracted);
+      setSubmitted(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -15,7 +29,7 @@ export function SlipForm({ token, initialUrl }: { token: string; initialUrl: str
     const res = await fetch(`/api/slips/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ externalUrl: url }),
+      body: JSON.stringify({ externalUrl: extractUrl(url) ?? url }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -43,6 +57,7 @@ export function SlipForm({ token, initialUrl }: { token: string; initialUrl: str
             setUrl(e.target.value);
             setSubmitted(false);
           }}
+          onPaste={handlePaste}
           required
         />
         <p className="mt-1.5 text-xs text-muted">
