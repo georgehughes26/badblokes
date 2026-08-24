@@ -11,9 +11,10 @@ export const saveResultsSchema = z.object({
       shortOdds: z.boolean(),
     }),
   ),
-  // Which no-pick players get their penalty voided (proof of a real bet
-  // submitted outside the app) instead of the usual -1/fine — see rules.ts.
-  noPickVoids: z.array(z.object({ userId: z.string().min(1), voided: z.boolean() })).default([]),
+  // Whether each no-pick player got proof of a real bet in — softens their
+  // fine from £10/-1 down to £5/0, the same as breach B does for a picked
+  // player — see rules.ts.
+  noPickSlips: z.array(z.object({ userId: z.string().min(1), slipSubmitted: z.boolean() })).default([]),
 });
 
 export type SaveResultsInput = z.infer<typeof saveResultsSchema>;

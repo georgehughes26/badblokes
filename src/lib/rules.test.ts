@@ -93,18 +93,17 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
     expect(out.points).toBe(-1);
     expect(out.fine.amount).toBe(10);
     expect(out.fine.ruleId).toBe("MULTI_BREACH");
-    expect(out.voided).toBe(false);
   });
 
-  it("no pick, but proof of a real bet submitted -> voided, 0 pts, £0", () => {
+  it("no pick, but proof of a real bet submitted anyway -> A only, 0 pts, £5 (not £10/-1)", () => {
     const out = settlePlayerGameweek(
-      input({ hasPick: false, isJoker: false, shortOdds: false, slipSubmitted: false, won: false, voided: true }),
+      input({ hasPick: false, isJoker: false, shortOdds: false, slipSubmitted: true, won: false }),
     );
-    expect(out.voided).toBe(true);
     expect(out.breaches.noPick).toBe(true);
+    expect(out.breaches.noSlip).toBe(false);
     expect(out.points).toBe(0);
-    expect(out.fine.amount).toBe(0);
-    expect(out.fine.ruleId).toBe("NO_FINE");
+    expect(out.fine.amount).toBe(5);
+    expect(out.fine.ruleId).toBe("NO_PICK");
   });
 
   it("joker, slip in, legal odds, team won -> +2, £0", () => {

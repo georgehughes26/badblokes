@@ -24,18 +24,19 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { gameweekId, picks: submittedFacts, noPickVoids } = parsed.data;
+  const { gameweekId, picks: submittedFacts, noPickSlips } = parsed.data;
 
   const gameweek = await prisma.gameweek.findUnique({
     where: { id: gameweekId },
-    include: { picks: { include: { betSlip: true } } },
+    include: { picks: { include: { betSlip: true } }, noPickSlips: true },
   });
   if (!gameweek) {
     return NextResponse.json({ error: "Gameweek not found" }, { status: 404 });
   }
 
   const factByPickId = new Map(submittedFacts.map((f) => [f.pickId, f]));
-  const voidedByUserId = new Map(noPickVoids.map((v) => [v.userId, v.voided]));
+  const slipSubmittedByUserId = new Map(noPickSlips.map((s) => [s.userId, s.slipSubmitted]));
+  const noPickSlipByUserId = new Map(gameweek.noPickSlips.map((s) => [s.userId, s]));
   // Only PLAYER-role users are subject to the automatic no-pick penalty —
   // an admin who isn't in the pool themselves shouldn't get auto-fined for
   // not picking. An admin who *does* play still gets settled normally via
@@ -88,7 +89,6 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
-          voided: outcome.voided,
         },
         update: {
           points: outcome.points,
@@ -101,7 +101,6 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
-          voided: outcome.voided,
           computedAt: new Date(),
         },
       });
@@ -119,7 +118,16 @@ export async function POST(request: Request) {
 
     for (const activeUser of allActivePlayers) {
       if (pickedUserIds.has(activeUser.id)) continue;
-      const outcome = settlePlayerGameweek({ ...NO_PICK_INPUT, voided: voidedByUserId.get(activeUser.id) ?? false });
+      const slipSubmitted = slipSubmittedByUserId.get(activeUser.id) ?? false;
+      const outcome = settlePlayerGameweek({ ...NO_PICK_INPUT, slipSubmitted });
+
+      const noPickSlip = noPickSlipByUserId.get(activeUser.id);
+      if (noPickSlip) {
+        await tx.noPickSlip.update({
+          where: { id: noPickSlip.id },
+          data: { submittedAt: slipSubmitted ? (noPickSlip.submittedAt ?? new Date()) : null },
+        });
+      }
 
       await tx.result.upsert({
         where: { gameweekId_userId: { gameweekId, userId: activeUser.id } },
@@ -136,7 +144,6 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
-          voided: outcome.voided,
         },
         update: {
           points: outcome.points,
@@ -149,7 +156,6 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
-          voided: outcome.voided,
           computedAt: new Date(),
         },
       });

@@ -63,7 +63,12 @@ export interface PlayerGameweekInput {
    * admin call at results entry — always false when hasPick is false.
    */
   shortOdds: boolean;
-  /** Was a bet slip submitted before the slip deadline? Always false when hasPick is false. */
+  /**
+   * Was a bet slip submitted before the slip deadline? Can be true even
+   * when hasPick is false — a player who never logged a pick in the app
+   * can still prove they placed a real bet, which softens the no-pick fine
+   * from £10/-1 (both breach A and B) down to £5/0 (breach A alone).
+   */
   slipSubmitted: boolean;
   /**
    * Did the picked team win outright, OR go 2 goals ahead at any point (EP)?
@@ -71,14 +76,6 @@ export interface PlayerGameweekInput {
    * calling in (see `didTeamWin`). Always false when hasPick is false.
    */
   won: boolean;
-  /**
-   * Only meaningful when hasPick is false: the player didn't log a pick in
-   * the app, but proved (via a slip link) they placed a real bet anyway —
-   * so the gameweek is voided for them instead of penalised. Overrides
-   * every other field: no points, no fine, breach A still stands as a fact
-   * (they didn't pick in the app), but it carries no penalty.
-   */
-  voided?: boolean;
 }
 
 export interface BreachFlags {
@@ -114,7 +111,6 @@ export interface SettlementOutcome {
   breaches: BreachFlags;
   fine: FineOutcome;
   jokerPlayed: boolean;
-  voided: boolean;
 }
 
 /** Fixture scoreline plus the admin-entered "went 2 up" flags for both sides. */
@@ -247,25 +243,15 @@ export function settlePlayerGameweek(
   if (!input.hasPick && input.isJoker) {
     throw new Error("Cannot play a joker on a no-pick week");
   }
-  if (!input.hasPick && (input.won || input.slipSubmitted || input.shortOdds)) {
-    throw new Error("A no-pick input cannot have a result, a slip, or short odds");
-  }
-
-  if (input.voided) {
-    return {
-      points: 0,
-      breaches: { noPick: true, noSlip: false, shortOdds: false, teamLost: false, jokerLost: false },
-      fine: { ruleId: "NO_FINE", amount: 0, reason: "No fine — proof of a real bet was submitted" },
-      jokerPlayed: false,
-      voided: true,
-    };
+  if (!input.hasPick && (input.won || input.shortOdds)) {
+    throw new Error("A no-pick input cannot have a result or short odds");
   }
 
   const breaches = computeBreaches(input);
   const fine = computeFine(breaches, config);
   const points = computePoints(breaches, input, config);
 
-  return { points, breaches, fine, jokerPlayed: input.hasPick && input.isJoker, voided: false };
+  return { points, breaches, fine, jokerPlayed: input.hasPick && input.isJoker };
 }
 
 /** Settle every player's gameweek in one pass. Order of the input map is preserved in the output. */

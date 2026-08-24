@@ -194,8 +194,9 @@ model BetSlip {
 
 // A slip-link submission for a player who didn't log a pick in the app at
 // all (so there's no Pick row to hang a BetSlip off of) — lets them prove
-// they still placed a real bet, which voids the no-pick penalty instead of
-// exempting them from it outright (see Result.voided / rules.ts).
+// they still placed a real bet, which softens the no-pick fine from £10
+// and -1 down to £5 and 0 (see rules.ts — same breach-A/breach-B logic
+// that already applies to a picked player who misses the slip deadline).
 model NoPickSlip {
   id          String    @id @default(cuid())
   gameweekId  String
@@ -230,10 +231,6 @@ model Result {
   fineRuleId         String // which rule in the precedence list fired
   fineReason         String // human readable, e.g. "£10 — joker lost"
   jokerPlayed        Boolean  @default(false)
-  // No pick was made in the app, but the player proved (via a NoPickSlip)
-  // they placed a real bet anyway — breachNoPick is still true (they really
-  // didn't pick), but no points/fine penalty applies.
-  voided             Boolean  @default(false)
   computedAt         DateTime @default(now())
   manuallyOverridden Boolean  @default(false)
   overrideReason     String?

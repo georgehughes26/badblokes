@@ -157,8 +157,9 @@ export default async function HomePage() {
 
   // Picks have closed, kick-off hasn't happened yet, and this player never
   // picked a team. They can still prove they placed a real bet elsewhere —
-  // submitting that voids the no-pick penalty instead of the usual -1/fine
-  // (see rules.ts's `voided` outcome).
+  // submitting that softens the no-pick fine from £10/-1 down to £5/0 (see
+  // rules.ts — same breach-A/breach-B logic as a picked player missing the
+  // slip deadline).
   const noPickSlip = await getOrCreateNoPickSlip(gameweek.id, user.id);
   const picksSoFar = getPicksReveal(context.gameweek);
   return (
@@ -169,11 +170,12 @@ export default async function HomePage() {
       </div>
       <div className="card flex flex-col items-center gap-3 py-10 text-center">
         <p className="pill-red">No team selected — no points this week</p>
+        <p className="text-sm text-muted">That&apos;s a £5 fine — miss the bet slip too and it jumps to £10 with a -1.</p>
       </div>
       <div className="card flex flex-col items-center gap-3 py-6 text-center">
         {noPickSlip.submittedAt ? (
           <>
-            <p className="pill-green">Bet slip submitted — this week&apos;s voided, not fined</p>
+            <p className="pill-green">Bet slip submitted — keeps the fine at £5, not £10</p>
             <Link href={`/slip/${noPickSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
               Update your bet slip
             </Link>
@@ -181,7 +183,7 @@ export default async function HomePage() {
         ) : (
           <>
             <p className="text-sm text-muted">
-              Still placed a bet without picking in the app? Submit proof and this week&apos;s voided instead of fined.
+              Still placed a bet without picking in the app? Get your slip in and the fine stays at £5 instead of £10.
             </p>
             <Link href={`/slip/${noPickSlip.token}`} className="btn-primary">
               Submit your bet slip

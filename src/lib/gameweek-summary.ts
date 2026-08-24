@@ -100,7 +100,7 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
     if (existing) {
       existing.points = result.points;
       existing.fineAmount = result.fineAmount;
-      if (!existing.hasPick) existing.outcomeLabel = result.voided ? "Void" : "No pick";
+      if (!existing.hasPick) existing.outcomeLabel = "No pick";
     } else {
       rows.set(result.userId, {
         userId: result.userId,
@@ -112,7 +112,7 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
         isJoker: false,
         pickedAt: null,
         noPickSlipSubmitted: Boolean(noPickSlipByUser.get(result.userId)?.submittedAt),
-        outcomeLabel: result.voided ? "Void" : "No pick",
+        outcomeLabel: "No pick",
         points: result.points,
         fineAmount: result.fineAmount,
       });

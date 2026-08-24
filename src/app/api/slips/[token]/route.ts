@@ -14,7 +14,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   // The token itself is the auth here — it's unguessable and shown only to
   // the player it belongs to. No session required. A token may belong to
   // either an actual pick's BetSlip or a no-pick player's NoPickSlip (proof
-  // of a real bet placed outside the app — see rules.ts's `voided` outcome).
+  // of a real bet placed outside the app, which softens the no-pick fine —
+  // see rules.ts).
   const betSlip = await prisma.betSlip.findUnique({
     where: { token },
     include: { pick: { include: { gameweek: true } } },

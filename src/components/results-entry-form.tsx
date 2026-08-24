@@ -21,9 +21,8 @@ export interface NoPickPlayer {
   userId: string;
   userName: string;
   slipUrl: string | null;
+  /** Default suggestion for the "Slip in" checkbox — the admin can still override it. */
   slipSubmitted: boolean;
-  /** Default suggestion for the "voided" checkbox — the admin can still override it. */
-  voided: boolean;
 }
 
 interface PickFactState {
@@ -71,8 +70,8 @@ export function ResultsEntryForm({
       ]),
     ),
   );
-  const [noPickVoided, setNoPickVoided] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(noPickPlayers.map((p) => [p.userId, p.voided])),
+  const [noPickSlipSubmitted, setNoPickSlipSubmitted] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(noPickPlayers.map((p) => [p.userId, p.slipSubmitted])),
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,11 +89,11 @@ export function ResultsEntryForm({
       result.push({ userId: pick.userId, userName: pick.userName, teamName: pick.teamName, outcome });
     }
     for (const player of noPickPlayers) {
-      const outcome = settlePlayerGameweek({ ...NO_PICK_INPUT, voided: noPickVoided[player.userId] ?? false });
+      const outcome = settlePlayerGameweek({ ...NO_PICK_INPUT, slipSubmitted: noPickSlipSubmitted[player.userId] ?? false });
       result.push({ userId: player.userId, userName: player.userName, teamName: null, outcome });
     }
     return result.sort((a, b) => b.outcome.points - a.outcome.points);
-  }, [facts, picks, noPickPlayers, noPickVoided]);
+  }, [facts, picks, noPickPlayers, noPickSlipSubmitted]);
 
   async function handleSave() {
     setSubmitting(true);
@@ -105,7 +104,7 @@ export function ResultsEntryForm({
       body: JSON.stringify({
         gameweekId,
         picks: picks.map((p) => ({ pickId: p.pickId, ...facts[p.pickId] })),
-        noPickVoids: noPickPlayers.map((p) => ({ userId: p.userId, voided: noPickVoided[p.userId] ?? false })),
+        noPickSlips: noPickPlayers.map((p) => ({ userId: p.userId, slipSubmitted: noPickSlipSubmitted[p.userId] ?? false })),
       }),
     });
     const data = await res.json();
@@ -202,17 +201,17 @@ export function ResultsEntryForm({
                       View slip ↗
                     </a>
                   ) : (
-                    <p className="text-xs text-muted">No slip submitted — automatic −1 and £10.</p>
+                    <p className="text-xs text-muted">No slip submitted.</p>
                   )}
                 </div>
                 <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-accent"
-                    checked={noPickVoided[player.userId] ?? false}
-                    onChange={(e) => setNoPickVoided((prev) => ({ ...prev, [player.userId]: e.target.checked }))}
+                    checked={noPickSlipSubmitted[player.userId] ?? false}
+                    onChange={(e) => setNoPickSlipSubmitted((prev) => ({ ...prev, [player.userId]: e.target.checked }))}
                   />
-                  Void — real bet proven, no points, no fine
+                  Slip in — £5, not £10
                 </label>
               </div>
             ))}
