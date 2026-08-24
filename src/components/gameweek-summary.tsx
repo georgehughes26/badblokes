@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { TeamBadge } from "@/components/team-badge";
 import { formatLondon } from "@/lib/time";
 import type { GameweekSummary, GameweekSummaryRow } from "@/lib/gameweek-summary";
@@ -83,12 +82,6 @@ export function GameweekSummaryView({ summary, currentUserId }: { summary: Gamew
           {rows.length === 0 && <p className="px-4 pb-4 text-sm text-muted">No picks were made this gameweek.</p>}
         </div>
       </div>
-
-      {settled && (
-        <Link href="/league-table" className="btn-secondary flex w-full items-center justify-center">
-          See the updated table
-        </Link>
-      )}
     </div>
   );
 }

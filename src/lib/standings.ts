@@ -69,11 +69,11 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
       fines: 0,
       jokersUsed: jokerByUser.get(result.userId) ?? 0,
     };
-    if (!result.breachNoPick) {
-      row.played += 1;
-      if (result.breachTeamLost) row.lost += 1;
-      else row.won += 1;
-    }
+    // A no-pick gameweek still counts as played — and as a loss, same as a
+    // picked team that lost. It just doesn't count as a joker use.
+    row.played += 1;
+    if (result.breachNoPick || result.breachTeamLost) row.lost += 1;
+    else row.won += 1;
     row.points += result.points;
     row.fines += result.fineAmount;
     rows.set(result.userId, row);
