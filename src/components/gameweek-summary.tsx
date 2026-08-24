@@ -5,7 +5,7 @@ import type { GameweekSummary, GameweekSummaryRow } from "@/lib/gameweek-summary
 
 function outcomeColor(label: string | null): string {
   if (label === "Won" || label === "Won (EP)") return "text-accent";
-  if (label === "Lost") return "text-danger";
+  if (label === "Lost" || label === "No pick") return "text-danger";
   return "text-muted";
 }
 
@@ -46,8 +46,8 @@ export function GameweekSummaryView({ summary, currentUserId }: { summary: Gamew
                   {row.hasPick ? (
                     <TeamBadge name={row.teamName!} shortName={row.teamShortName!} crestUrl={row.teamCrestUrl} size="sm" />
                   ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised text-xs text-muted">
-                      —
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-danger/10 text-sm font-bold text-danger">
+                      ✕
                     </span>
                   )}
                   <span className="min-w-0">
@@ -55,6 +55,7 @@ export function GameweekSummaryView({ summary, currentUserId }: { summary: Gamew
                       <span className="truncate text-sm font-medium">{row.userName}</span>
                       {isYou && <span className="pill-green shrink-0">You</span>}
                       {row.isJoker && <span className="pill-amber shrink-0">Joker</span>}
+                      {row.noPickSlipSubmitted && <span className="pill-green shrink-0">Slip in</span>}
                     </span>
                     <span className="block truncate text-xs text-muted">{row.hasPick ? row.teamName : "No pick"}</span>
                   </span>
@@ -71,7 +72,9 @@ export function GameweekSummaryView({ summary, currentUserId }: { summary: Gamew
                       {row.fineAmount !== null && row.fineAmount > 0 && <span className="block text-danger">£{row.fineAmount}</span>}
                     </>
                   ) : (
-                    <span className="text-muted">{row.pickedAt ? formatLondon(row.pickedAt, "EEE, HH:mm") : ""}</span>
+                    <span className="text-muted">
+                      {row.hasPick ? (row.pickedAt ? formatLondon(row.pickedAt, "EEE, HH:mm") : "") : "No pick"}
+                    </span>
                   )}
                 </span>
               </div>

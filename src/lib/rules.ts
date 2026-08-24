@@ -71,6 +71,14 @@ export interface PlayerGameweekInput {
    * calling in (see `didTeamWin`). Always false when hasPick is false.
    */
   won: boolean;
+  /**
+   * Only meaningful when hasPick is false: the player didn't log a pick in
+   * the app, but proved (via a slip link) they placed a real bet anyway —
+   * so the gameweek is voided for them instead of penalised. Overrides
+   * every other field: no points, no fine, breach A still stands as a fact
+   * (they didn't pick in the app), but it carries no penalty.
+   */
+  voided?: boolean;
 }
 
 export interface BreachFlags {
@@ -106,6 +114,7 @@ export interface SettlementOutcome {
   breaches: BreachFlags;
   fine: FineOutcome;
   jokerPlayed: boolean;
+  voided: boolean;
 }
 
 /** Fixture scoreline plus the admin-entered "went 2 up" flags for both sides. */
@@ -242,11 +251,21 @@ export function settlePlayerGameweek(
     throw new Error("A no-pick input cannot have a result, a slip, or short odds");
   }
 
+  if (input.voided) {
+    return {
+      points: 0,
+      breaches: { noPick: true, noSlip: false, shortOdds: false, teamLost: false, jokerLost: false },
+      fine: { ruleId: "NO_FINE", amount: 0, reason: "No fine — proof of a real bet was submitted" },
+      jokerPlayed: false,
+      voided: true,
+    };
+  }
+
   const breaches = computeBreaches(input);
   const fine = computeFine(breaches, config);
   const points = computePoints(breaches, input, config);
 
-  return { points, breaches, fine, jokerPlayed: input.hasPick && input.isJoker };
+  return { points, breaches, fine, jokerPlayed: input.hasPick && input.isJoker, voided: false };
 }
 
 /** Settle every player's gameweek in one pass. Order of the input map is preserved in the output. */

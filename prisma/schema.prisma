@@ -40,6 +40,7 @@ model User {
   auditLogs         AuditLog[]
   verifiedSlips     BetSlip[]          @relation("SlipVerifier")
   pointsAdjustments PointsAdjustment[]
+  noPickSlips       NoPickSlip[]
 
   @@index([role])
 }
@@ -119,6 +120,7 @@ model Gameweek {
   picks       Pick[]
   results     Result[]
   fineEntries FineLedgerEntry[]
+  noPickSlips NoPickSlip[]
 
   @@unique([seasonId, weekNumber])
   @@index([status])
@@ -190,6 +192,24 @@ model BetSlip {
   createdAt       DateTime  @default(now())
 }
 
+// A slip-link submission for a player who didn't log a pick in the app at
+// all (so there's no Pick row to hang a BetSlip off of) — lets them prove
+// they still placed a real bet, which voids the no-pick penalty instead of
+// exempting them from it outright (see Result.voided / rules.ts).
+model NoPickSlip {
+  id          String    @id @default(cuid())
+  gameweekId  String
+  gameweek    Gameweek  @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String    @unique
+  externalUrl String?
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([gameweekId, userId])
+}
+
 // ---------------------------------------------------------------------------
 // Settlement & fines
 // ---------------------------------------------------------------------------
@@ -210,6 +230,10 @@ model Result {
   fineRuleId         String // which rule in the precedence list fired
   fineReason         String // human readable, e.g. "£10 — joker lost"
   jokerPlayed        Boolean  @default(false)
+  // No pick was made in the app, but the player proved (via a NoPickSlip)
+  // they placed a real bet anyway — breachNoPick is still true (they really
+  // didn't pick), but no points/fine penalty applies.
+  voided             Boolean  @default(false)
   computedAt         DateTime @default(now())
   manuallyOverridden Boolean  @default(false)
   overrideReason     String?

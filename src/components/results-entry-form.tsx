@@ -20,6 +20,10 @@ export interface ResultsEntryPick {
 export interface NoPickPlayer {
   userId: string;
   userName: string;
+  slipUrl: string | null;
+  slipSubmitted: boolean;
+  /** Default suggestion for the "voided" checkbox — the admin can still override it. */
+  voided: boolean;
 }
 
 interface PickFactState {
@@ -67,6 +71,9 @@ export function ResultsEntryForm({
       ]),
     ),
   );
+  const [noPickVoided, setNoPickVoided] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(noPickPlayers.map((p) => [p.userId, p.voided])),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -83,10 +90,11 @@ export function ResultsEntryForm({
       result.push({ userId: pick.userId, userName: pick.userName, teamName: pick.teamName, outcome });
     }
     for (const player of noPickPlayers) {
-      result.push({ userId: player.userId, userName: player.userName, teamName: null, outcome: settlePlayerGameweek(NO_PICK_INPUT) });
+      const outcome = settlePlayerGameweek({ ...NO_PICK_INPUT, voided: noPickVoided[player.userId] ?? false });
+      result.push({ userId: player.userId, userName: player.userName, teamName: null, outcome });
     }
     return result.sort((a, b) => b.outcome.points - a.outcome.points);
-  }, [facts, picks, noPickPlayers]);
+  }, [facts, picks, noPickPlayers, noPickVoided]);
 
   async function handleSave() {
     setSubmitting(true);
@@ -97,6 +105,7 @@ export function ResultsEntryForm({
       body: JSON.stringify({
         gameweekId,
         picks: picks.map((p) => ({ pickId: p.pickId, ...facts[p.pickId] })),
+        noPickVoids: noPickPlayers.map((p) => ({ userId: p.userId, voided: noPickVoided[p.userId] ?? false })),
       }),
     });
     const data = await res.json();
@@ -176,10 +185,38 @@ export function ResultsEntryForm({
       </div>
 
       {noPickPlayers.length > 0 && (
-        <div className="card">
-          <p className="text-sm font-semibold text-muted">
-            No pick: {noPickPlayers.map((p) => p.userName).join(", ")} — automatic −1 and £10 each.
-          </p>
+        <div className="card space-y-3 p-0">
+          <p className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-muted">No pick</p>
+          <div className="divide-y divide-border">
+            {noPickPlayers.map((player) => (
+              <div key={player.userId} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <p className="text-sm font-semibold">{player.userName}</p>
+                  {player.slipUrl ? (
+                    <a
+                      href={player.slipUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      View slip ↗
+                    </a>
+                  ) : (
+                    <p className="text-xs text-muted">No slip submitted — automatic −1 and £10.</p>
+                  )}
+                </div>
+                <label className="flex cursor-pointer items-center gap-1.5 py-1 text-xs">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-accent"
+                    checked={noPickVoided[player.userId] ?? false}
+                    onChange={(e) => setNoPickVoided((prev) => ({ ...prev, [player.userId]: e.target.checked }))}
+                  />
+                  Void — real bet proven, no points, no fine
+                </label>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

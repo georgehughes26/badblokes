@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/current-user";
 import { getPickContext, getPicksReveal, getRelevantGameweek } from "@/lib/picks";
 import { getGameweekSummary } from "@/lib/gameweek-summary";
+import { getOrCreateNoPickSlip } from "@/lib/slips";
 import { getJokerHalf } from "@/lib/jokers";
 import { Countdown } from "@/components/countdown";
 import { PickScreen } from "@/components/pick-screen";
@@ -154,12 +155,41 @@ export default async function HomePage() {
     }
   }
 
+  // Picks have closed, kick-off hasn't happened yet, and this player never
+  // picked a team. They can still prove they placed a real bet elsewhere —
+  // submitting that voids the no-pick penalty instead of the usual -1/fine
+  // (see rules.ts's `voided` outcome).
+  const noPickSlip = await getOrCreateNoPickSlip(gameweek.id, user.id);
+  const picksSoFar = getPicksReveal(context.gameweek);
   return (
     <div className="space-y-4">
       {heading}
-      <div className="card text-center">
-        <p className="text-sm text-muted">Picks are closed for this gameweek — hang tight for kick-off.</p>
+      <div className="card py-6">
+        <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />
       </div>
+      <div className="card flex flex-col items-center gap-3 py-10 text-center">
+        <p className="pill-red">No team selected — no points this week</p>
+      </div>
+      <div className="card flex flex-col items-center gap-3 py-6 text-center">
+        {noPickSlip.submittedAt ? (
+          <>
+            <p className="pill-green">Bet slip submitted — this week&apos;s voided, not fined</p>
+            <Link href={`/slip/${noPickSlip.token}`} className="text-xs font-semibold text-muted hover:text-foreground">
+              Update your bet slip
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted">
+              Still placed a bet without picking in the app? Submit proof and this week&apos;s voided instead of fined.
+            </p>
+            <Link href={`/slip/${noPickSlip.token}`} className="btn-primary">
+              Submit your bet slip
+            </Link>
+          </>
+        )}
+      </div>
+      <PicksReveal picks={picksSoFar} currentUserId={user.id} />
     </div>
   );
 }

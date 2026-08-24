@@ -9,6 +9,8 @@ export interface GameweekSummaryRow {
   teamCrestUrl: string | null;
   isJoker: boolean;
   pickedAt: Date | null;
+  /** Has a no-pick player submitted proof of a real bet placed outside the app? Only ever true when hasPick is false. */
+  noPickSlipSubmitted: boolean;
   /** null until the gameweek is settled. */
   outcomeLabel: string | null;
   points: number | null;
@@ -26,9 +28,9 @@ export interface GameweekSummary {
  * Everyone's picks — and, once settled, everyone's results — for a
  * gameweek whose pick window has closed. This is the "in play" recap shown
  * on the home page once kick-off has passed and there's no newer gameweek
- * to show instead. Before settlement there's no reliable way to know who
- * didn't pick at all (that only becomes a Result row at settlement time),
- * so the roster is picks-only until then.
+ * to show instead. Every caller only ever reaches this function once the
+ * pick window is closed, so every active player (picked or not) is always
+ * seeded in — no-pick players show up immediately, not just once settled.
  */
 export async function getGameweekSummary(gameweekId: string): Promise<GameweekSummary | null> {
   const gameweek = await prisma.gameweek.findUnique({
@@ -36,30 +38,31 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
     include: {
       picks: { include: { user: true, team: true } },
       results: true,
+      noPickSlips: true,
     },
   });
   if (!gameweek) return null;
 
   const settled = gameweek.status === "SETTLED";
   const rows = new Map<string, GameweekSummaryRow>();
+  const noPickSlipByUser = new Map(gameweek.noPickSlips.map((s) => [s.userId, s]));
 
-  if (settled) {
-    const activePlayers = await prisma.user.findMany({ where: { active: true, role: "PLAYER" } });
-    for (const p of activePlayers) {
-      rows.set(p.id, {
-        userId: p.id,
-        userName: p.name,
-        hasPick: false,
-        teamName: null,
-        teamShortName: null,
-        teamCrestUrl: null,
-        isJoker: false,
-        pickedAt: null,
-        outcomeLabel: null,
-        points: null,
-        fineAmount: null,
-      });
-    }
+  const activePlayers = await prisma.user.findMany({ where: { active: true, role: "PLAYER" } });
+  for (const p of activePlayers) {
+    rows.set(p.id, {
+      userId: p.id,
+      userName: p.name,
+      hasPick: false,
+      teamName: null,
+      teamShortName: null,
+      teamCrestUrl: null,
+      isJoker: false,
+      pickedAt: null,
+      noPickSlipSubmitted: Boolean(noPickSlipByUser.get(p.id)?.submittedAt),
+      outcomeLabel: null,
+      points: null,
+      fineAmount: null,
+    });
   }
 
   for (const pick of gameweek.picks) {
@@ -72,6 +75,7 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
       teamCrestUrl: pick.team.crestUrl,
       isJoker: pick.isJoker,
       pickedAt: pick.createdAt,
+      noPickSlipSubmitted: false,
       // "Won" and "went 2 up" are independent admin-entered facts (a team can
       // go 2 up and then draw or lose outright and it still counts as a win
       // — see rules.ts) — combine them the same way settlePlayerGameweek
@@ -96,7 +100,7 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
     if (existing) {
       existing.points = result.points;
       existing.fineAmount = result.fineAmount;
-      if (!existing.hasPick) existing.outcomeLabel = "No pick";
+      if (!existing.hasPick) existing.outcomeLabel = result.voided ? "Void" : "No pick";
     } else {
       rows.set(result.userId, {
         userId: result.userId,
@@ -107,7 +111,8 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
         teamCrestUrl: null,
         isJoker: false,
         pickedAt: null,
-        outcomeLabel: "No pick",
+        noPickSlipSubmitted: Boolean(noPickSlipByUser.get(result.userId)?.submittedAt),
+        outcomeLabel: result.voided ? "Void" : "No pick",
         points: result.points,
         fineAmount: result.fineAmount,
       });
@@ -116,7 +121,9 @@ export async function getGameweekSummary(gameweekId: string): Promise<GameweekSu
 
   const sorted = [...rows.values()].sort((a, b) => {
     if (settled) return (b.points ?? -Infinity) - (a.points ?? -Infinity);
-    return (a.pickedAt?.getTime() ?? 0) - (b.pickedAt?.getTime() ?? 0);
+    // Pre-settlement: order by pick time, with no-pick players pushed to
+    // the end instead of sorting first (a null pickedAt isn't "earliest").
+    return (a.pickedAt?.getTime() ?? Infinity) - (b.pickedAt?.getTime() ?? Infinity);
   });
 
   const winnersCount = sorted.filter((r) => r.outcomeLabel === "Won" || r.outcomeLabel === "Won (EP)").length;

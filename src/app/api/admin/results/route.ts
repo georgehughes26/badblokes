@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { gameweekId, picks: submittedFacts } = parsed.data;
+  const { gameweekId, picks: submittedFacts, noPickVoids } = parsed.data;
 
   const gameweek = await prisma.gameweek.findUnique({
     where: { id: gameweekId },
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   }
 
   const factByPickId = new Map(submittedFacts.map((f) => [f.pickId, f]));
+  const voidedByUserId = new Map(noPickVoids.map((v) => [v.userId, v.voided]));
   // Only PLAYER-role users are subject to the automatic no-pick penalty —
   // an admin who isn't in the pool themselves shouldn't get auto-fined for
   // not picking. An admin who *does* play still gets settled normally via
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
+          voided: outcome.voided,
         },
         update: {
           points: outcome.points,
@@ -99,6 +101,7 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
+          voided: outcome.voided,
           computedAt: new Date(),
         },
       });
@@ -116,7 +119,7 @@ export async function POST(request: Request) {
 
     for (const activeUser of allActivePlayers) {
       if (pickedUserIds.has(activeUser.id)) continue;
-      const outcome = settlePlayerGameweek(NO_PICK_INPUT);
+      const outcome = settlePlayerGameweek({ ...NO_PICK_INPUT, voided: voidedByUserId.get(activeUser.id) ?? false });
 
       await tx.result.upsert({
         where: { gameweekId_userId: { gameweekId, userId: activeUser.id } },
@@ -133,12 +136,20 @@ export async function POST(request: Request) {
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
           jokerPlayed: outcome.jokerPlayed,
+          voided: outcome.voided,
         },
         update: {
           points: outcome.points,
+          breachNoPick: outcome.breaches.noPick,
+          breachNoSlip: outcome.breaches.noSlip,
+          breachShortOdds: outcome.breaches.shortOdds,
+          breachTeamLost: outcome.breaches.teamLost,
+          breachJokerLost: outcome.breaches.jokerLost,
           fineAmount: outcome.fine.amount,
           fineRuleId: outcome.fine.ruleId,
           fineReason: outcome.fine.reason,
+          jokerPlayed: outcome.jokerPlayed,
+          voided: outcome.voided,
           computedAt: new Date(),
         },
       });
@@ -149,6 +160,8 @@ export async function POST(request: Request) {
           create: { gameweekId, userId: activeUser.id, amount: outcome.fine.amount, reason: outcome.fine.reason },
           update: { amount: outcome.fine.amount, reason: outcome.fine.reason },
         });
+      } else {
+        await tx.fineLedgerEntry.deleteMany({ where: { gameweekId, userId: activeUser.id } });
       }
     }
 

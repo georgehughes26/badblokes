@@ -11,15 +11,32 @@ export default async function AdminResultsEntryPage({ params }: { params: Promis
     include: {
       season: true,
       picks: { include: { user: true, team: true, betSlip: true }, orderBy: { createdAt: "asc" } },
+      noPickSlips: true,
+      results: true,
     },
   });
   if (!gameweek) notFound();
 
   const allActivePlayers = await prisma.user.findMany({ where: { active: true, role: "PLAYER" } });
   const pickedUserIds = new Set(gameweek.picks.map((p) => p.userId));
+  const noPickSlipByUser = new Map(gameweek.noPickSlips.map((s) => [s.userId, s]));
+  const resultByUser = new Map(gameweek.results.map((r) => [r.userId, r]));
   const noPickPlayers = allActivePlayers
     .filter((u) => !pickedUserIds.has(u.id))
-    .map((u) => ({ userId: u.id, userName: u.name }));
+    .map((u) => {
+      const slip = noPickSlipByUser.get(u.id);
+      const priorResult = resultByUser.get(u.id);
+      return {
+        userId: u.id,
+        userName: u.name,
+        slipUrl: slip?.externalUrl ?? null,
+        slipSubmitted: Boolean(slip?.submittedAt),
+        // Prefer whatever the admin already decided last time; otherwise
+        // default to "voided" if a slip was submitted, since that's almost
+        // always the right call.
+        voided: priorResult ? priorResult.voided : Boolean(slip?.submittedAt),
+      };
+    });
 
   const picks = gameweek.picks.map((pick) => ({
     pickId: pick.id,
