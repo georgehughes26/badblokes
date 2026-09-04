@@ -10,6 +10,7 @@ import { PicksReveal } from "@/components/picks-reveal";
 import { EditPickPanel } from "@/components/edit-pick-panel";
 import { GameweekSummaryView } from "@/components/gameweek-summary";
 import { TeamBadge } from "@/components/team-badge";
+import { MissingPicksBanner } from "@/components/missing-picks-banner";
 
 export default async function HomePage() {
   const user = await requireUser();
@@ -50,6 +51,7 @@ export default async function HomePage() {
     const jokerHalf = getJokerHalf(gameweek.pickDeadlineAt, gameweek.season.jokerSplitDate);
     return (
       <div className="space-y-4">
+        {context.phase === "LOCKED" && <MissingPicksBanner gameweekId={gameweek.id} />}
         {heading}
         <div className="card py-6">
           {context.phase === "OPEN" ? (
@@ -164,6 +166,7 @@ export default async function HomePage() {
   const picksSoFar = getPicksReveal(context.gameweek);
   return (
     <div className="space-y-4">
+      <MissingPicksBanner gameweekId={gameweek.id} />
       {heading}
       <div className="card py-6">
         <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />

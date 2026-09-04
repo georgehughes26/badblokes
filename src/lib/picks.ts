@@ -124,6 +124,19 @@ export async function hasEveryonePicked(pickedUserIds: Set<string>): Promise<boo
   return activePlayers.every((p) => pickedUserIds.has(p.id));
 }
 
+/** Names of every active player who hasn't picked for this gameweek yet, alphabetical — the MissingPicksBanner callout. */
+export async function getMissingPickerNames(gameweekId: string): Promise<string[]> {
+  const [activePlayers, picks] = await Promise.all([
+    prisma.user.findMany({ where: { active: true, role: "PLAYER" }, select: { id: true, name: true } }),
+    prisma.pick.findMany({ where: { gameweekId }, select: { userId: true } }),
+  ]);
+  const pickedUserIds = new Set(picks.map((p) => p.userId));
+  return activePlayers
+    .filter((p) => !pickedUserIds.has(p.id))
+    .map((p) => p.name)
+    .sort();
+}
+
 /** The team the player picked in the immediately preceding gameweek of the same season, if any. */
 export async function getPreviousGameweekPickTeamId(
   userId: string,
