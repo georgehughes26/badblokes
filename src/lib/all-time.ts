@@ -6,79 +6,86 @@ export interface AllTimeRow {
   played: number;
   won: number;
   lost: number;
+  points: number;
 }
 
-interface WinLoss {
+interface CareerStats {
   played: number;
   won: number;
   lost: number;
+  points: number;
 }
 
-function emptyWinLoss(): WinLoss {
-  return { played: 0, won: 0, lost: 0 };
+function emptyCareerStats(): CareerStats {
+  return { played: 0, won: 0, lost: 0, points: 0 };
 }
 
-function combine(a: WinLoss, b: WinLoss): WinLoss {
-  return { played: a.played + b.played, won: a.won + b.won, lost: a.lost + b.lost };
+function combine(a: CareerStats, b: CareerStats): CareerStats {
+  return { played: a.played + b.played, won: a.won + b.won, lost: a.lost + b.lost, points: a.points + b.points };
 }
 
 /** Every Result row the app itself has ever recorded, across every season — not just the active one. */
-async function getAppWideWinLoss(): Promise<Map<string, WinLoss>> {
+async function getAppWideCareerStats(): Promise<Map<string, CareerStats>> {
   const results = await prisma.result.findMany({
-    select: { userId: true, breachNoPick: true, breachTeamLost: true },
+    select: { userId: true, points: true, breachNoPick: true, breachTeamLost: true },
   });
-  const map = new Map<string, WinLoss>();
+  const map = new Map<string, CareerStats>();
   for (const r of results) {
-    const row = map.get(r.userId) ?? emptyWinLoss();
+    const row = map.get(r.userId) ?? emptyCareerStats();
     row.played += 1;
     // Same "played and lost" rule as computeStandings — a no-pick counts as
     // a loss too, not a non-event.
     if (r.breachNoPick || r.breachTeamLost) row.lost += 1;
     else row.won += 1;
+    row.points += r.points;
     map.set(r.userId, row);
   }
   return map;
 }
 
 /** Final P/W/L from every pre-app season — hand-entered via HistoricStanding, not derived. */
-async function getHistoricWinLoss(): Promise<Map<string, WinLoss>> {
+async function getHistoricCareerStats(): Promise<Map<string, CareerStats>> {
   const standings = await prisma.historicStanding.findMany({
     select: { userId: true, played: true, won: true, lost: true },
   });
-  const map = new Map<string, WinLoss>();
+  const map = new Map<string, CareerStats>();
   for (const s of standings) {
-    const row = map.get(s.userId) ?? emptyWinLoss();
-    map.set(s.userId, combine(row, s));
+    const row = map.get(s.userId) ?? emptyCareerStats();
+    // There was no separate points concept pre-app — that era's win count
+    // (already scored under its own joker-worth-2 convention, see
+    // HistoricStanding in schema.prisma) stands in for points as-is.
+    map.set(s.userId, combine(row, { played: s.played, won: s.won, lost: s.lost, points: s.won }));
   }
   return map;
 }
 
 /**
  * Every active player's career record — every app-tracked season's results
- * plus the hand-entered pre-app seasons — combined into one P/W/L ledger.
- * This is the All Time Table: ranked by total wins (not win %), because
- * pre-app wins were scored under that era's own convention (a joker win
- * counted as 2 wins with a loss undone, not a separate points value — see
- * HistoricStanding in schema.prisma), so `won` is each season's score,
- * not a literal count of gameweeks won.
+ * plus the hand-entered pre-app seasons — combined into one ledger. This is
+ * the All Time Table: ranked by points, where an app-tracked season
+ * contributes its real Result.points (joker wins worth 2, multi-breach
+ * penalties included) and a pre-app season contributes its win count
+ * as-is, since that already was that era's score.
  */
 export async function computeAllTimeStandings(): Promise<AllTimeRow[]> {
   const [appWide, historic, activeUsers] = await Promise.all([
-    getAppWideWinLoss(),
-    getHistoricWinLoss(),
+    getAppWideCareerStats(),
+    getHistoricCareerStats(),
     prisma.user.findMany({ where: { active: true } }),
   ]);
 
   const rows: AllTimeRow[] = activeUsers.map((user) => ({
     userId: user.id,
     name: user.name,
-    ...combine(appWide.get(user.id) ?? emptyWinLoss(), historic.get(user.id) ?? emptyWinLoss()),
+    ...combine(appWide.get(user.id) ?? emptyCareerStats(), historic.get(user.id) ?? emptyCareerStats()),
   }));
 
-  return rows.sort((a, b) => b.won - a.won || a.lost - b.lost || b.played - a.played || a.name.localeCompare(b.name));
+  return rows.sort(
+    (a, b) => b.points - a.points || a.lost - b.lost || b.won - a.won || a.name.localeCompare(b.name),
+  );
 }
 
-/** One player's career P/W/L — the all-time half of the History page's profile header. */
+/** One player's career P/W/L/points — the all-time half of the History page's profile header. */
 export async function getUserAllTimeStats(userId: string): Promise<AllTimeRow | null> {
   const rows = await computeAllTimeStandings();
   return rows.find((r) => r.userId === userId) ?? null;

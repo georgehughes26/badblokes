@@ -6,7 +6,7 @@ const MEDAL_CLASS: Record<number, string> = {
   2: "text-[#c07a4a]",
 };
 
-/** Career P/W/L across every app season and every hand-entered pre-app season — see lib/all-time.ts. No points, fines, or joker columns: those units don't carry over from before the app existed. */
+/** Career P/W/L/points across every app season and every hand-entered pre-app season — see lib/all-time.ts. No fines or joker columns: those don't carry over from before the app existed. */
 export function AllTimeTable({ rows, currentUserId }: { rows: AllTimeRow[]; currentUserId?: string }) {
   if (rows.length === 0) {
     return <p className="card text-center text-sm text-muted">No history yet.</p>;
@@ -22,13 +22,12 @@ export function AllTimeTable({ rows, currentUserId }: { rows: AllTimeRow[]; curr
             <th className="px-3 py-3 text-right">P</th>
             <th className="px-3 py-3 text-right">W</th>
             <th className="px-3 py-3 text-right">L</th>
-            <th className="px-3 py-3 text-right sm:px-4">Win %</th>
+            <th className="px-3 py-3 text-right sm:px-4">Pts</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((row, i) => {
             const isYou = row.userId === currentUserId;
-            const winPct = row.played > 0 ? Math.round((row.won / row.played) * 100) : 0;
             const isWinner = i === 0;
             const rowBg = isWinner ? "bg-warn/10" : isYou ? "bg-accent/10" : "bg-surface";
             const rankColor = MEDAL_CLASS[i] ?? "text-muted";
@@ -49,7 +48,7 @@ export function AllTimeTable({ rows, currentUserId }: { rows: AllTimeRow[]; curr
                 <td className="px-3 py-3 text-right text-muted">{row.played}</td>
                 <td className="px-3 py-3 text-right text-muted">{row.won}</td>
                 <td className="px-3 py-3 text-right text-muted">{row.lost}</td>
-                <td className="font-display px-3 py-3 text-right text-base font-bold sm:px-4">{winPct}%</td>
+                <td className="font-display px-3 py-3 text-right text-base font-bold sm:px-4">{row.points}</td>
               </tr>
             );
           })}
