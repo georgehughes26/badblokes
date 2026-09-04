@@ -166,15 +166,11 @@ export default async function HomePage() {
   const picksSoFar = getPicksReveal(context.gameweek);
   return (
     <div className="space-y-4">
-      <MissingPicksBanner gameweekId={gameweek.id} />
       {heading}
       <div className="card py-6">
         <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />
       </div>
-      <div className="card flex flex-col items-center gap-3 py-10 text-center">
-        <p className="pill-red">No team selected — no points this week</p>
-        <p className="text-sm text-muted">That&apos;s a £5 fine — miss the bet slip too and it jumps to £10 with a -1.</p>
-      </div>
+      <MissingPicksBanner gameweekId={gameweek.id} />
       <div className="card flex flex-col items-center gap-3 py-6 text-center">
         {noPickSlip.submittedAt ? (
           <>
