@@ -6,7 +6,7 @@ const MEDAL_CLASS: Record<number, string> = {
   2: "text-[#c07a4a]",
 };
 
-/** Career P/W/L/points across every app season and every hand-entered pre-app season — see lib/all-time.ts. No fines or joker columns: those don't carry over from before the app existed. `notes` asterisks a manual adjustment (e.g. a "First To Leave" forfeit) baked into someone's points. */
+/** Career P/W/L/points across every app season and every hand-entered pre-app season — see lib/all-time.ts. No fines or joker columns: those don't carry over from before the app existed. `notes` lists any manual adjustment (e.g. a "First To Leave" forfeit) baked into someone's points, under a "Deductions" heading below the table. */
 export function AllTimeTable({
   rows,
   currentUserId,
@@ -56,22 +56,20 @@ export function AllTimeTable({
                 <td className="px-3 py-3 text-right text-muted">{row.played}</td>
                 <td className="px-3 py-3 text-right text-muted">{row.won}</td>
                 <td className="px-3 py-3 text-right text-muted">{row.lost}</td>
-                <td className="font-display px-3 py-3 text-right text-base font-bold sm:px-4">
-                  {row.points}
-                  {notes?.some((n) => n.userId === row.userId) && <sup className="text-muted">*</sup>}
-                </td>
+                <td className="font-display px-3 py-3 text-right text-base font-bold sm:px-4">{row.points}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
       {notes && notes.length > 0 && (
-        <div className="space-y-0.5 border-t border-border px-4 py-3 text-xs text-muted">
+        <div className="space-y-1 border-t border-border px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Deductions</p>
           {notes.map((note) => {
             const row = rows.find((r) => r.userId === note.userId);
             return (
-              <p key={note.userId}>
-                * {row?.name ?? "?"}: {note.points > 0 ? `+${note.points}` : note.points} — {note.reason}
+              <p key={note.userId} className="text-xs text-muted">
+                {row?.name ?? "?"}: {note.points > 0 ? `+${note.points}` : note.points} — {note.reason}
               </p>
             );
           })}
