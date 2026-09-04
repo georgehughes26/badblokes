@@ -10,7 +10,7 @@ export const PLAYER_LINKS: NavLink[] = [
   { href: "/", label: "Dashboard", built: true },
   { href: "/league-table", label: "Table", built: true },
   { href: "/fines", label: "The Pot", built: true },
-  { href: "/history", label: "History", built: false },
+  { href: "/history", label: "History", built: true },
 ];
 
 export const ADMIN_LINKS: NavLink[] = [

@@ -63,7 +63,7 @@ export function MobileTabBarClient({ isAdmin }: { isAdmin: boolean }) {
     { href: "/", label: "Dashboard", icon: HomeIcon, built: true },
     { href: "/league-table", label: "Table", icon: TableIcon, built: true },
     { href: "/fines", label: "The Pot", icon: PotIcon, built: true },
-    { href: "/history", label: "History", icon: ClockIcon, built: false },
+    { href: "/history", label: "History", icon: ClockIcon, built: true },
   ];
   if (isAdmin) {
     items.push({ href: "/admin/gameweeks", label: "Admin", icon: ShieldIcon, built: true });
