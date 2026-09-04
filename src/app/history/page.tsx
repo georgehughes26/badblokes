@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/current-user";
+import { prisma } from "@/lib/prisma";
 import { getGameweekHistory } from "@/lib/history";
+import { computeStandings } from "@/lib/standings";
+import { getUserAllTimeStats } from "@/lib/all-time";
 import { formatLondon } from "@/lib/time";
 import { TeamBadge } from "@/components/team-badge";
+import { StatTiles } from "@/components/stat-tiles";
 
 function outcomeColor(label: string | null): string {
   if (label === "Won" || label === "Won (EP)") return "text-accent";
@@ -12,12 +16,38 @@ function outcomeColor(label: string | null): string {
 
 export default async function HistoryPage() {
   const user = await requireUser();
-  const seasons = await getGameweekHistory(user.id);
+  const season = await prisma.season.findFirst({ where: { active: true } });
+
+  const [seasons, seasonStandings, allTime] = await Promise.all([
+    getGameweekHistory(user.id),
+    season ? computeStandings(season.id) : Promise.resolve([]),
+    getUserAllTimeStats(user.id),
+  ]);
+  const myCurrentSeason = seasonStandings.find((r) => r.userId === user.id);
   const totalGameweeks = seasons.reduce((n, s) => n + s.gameweeks.length, 0);
 
   return (
     <div className="space-y-5">
-      <h1 className="font-display text-2xl font-bold">History</h1>
+      <div className="card flex flex-col items-center gap-1 py-6 text-center">
+        <p className="font-display text-2xl font-bold">{user.name}</p>
+        <p className="text-xs text-muted">Player profile</p>
+      </div>
+
+      {season && myCurrentSeason && (
+        <section className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{season.name}</p>
+          <StatTiles played={myCurrentSeason.played} won={myCurrentSeason.won} lost={myCurrentSeason.lost} />
+        </section>
+      )}
+
+      {allTime && (
+        <section className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">All Time</p>
+          <StatTiles played={allTime.played} won={allTime.won} lost={allTime.lost} />
+        </section>
+      )}
+
+      <h2 className="font-display text-xl font-bold">Gameweek History</h2>
 
       {totalGameweeks === 0 && (
         <p className="card text-center text-sm text-muted">

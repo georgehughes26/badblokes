@@ -41,6 +41,7 @@ model User {
   verifiedSlips     BetSlip[]          @relation("SlipVerifier")
   pointsAdjustments PointsAdjustment[]
   noPickSlips       NoPickSlip[]
+  historicStandings HistoricStanding[]
 
   @@index([role])
 }
@@ -273,6 +274,44 @@ model PointsAdjustment {
   createdAt DateTime @default(now())
 
   @@index([seasonId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Pre-app history — seasons played (on paper/WhatsApp) before this app
+// existed. Only final per-player P/W/L survives from back then, not
+// gameweek-by-gameweek picks, so these are hand-entered season totals
+// rather than rows derived from Gameweek/Pick/Result like everything else.
+// Feeds the All Time Table and the all-time half of a player's profile —
+// see lib/all-time.ts. Deliberately carries no points/fines/joker columns:
+// the current app's Result.points and this era's win counts aren't the
+// same unit (see HistoricStanding.won), so All Time only ever compares P/W/L.
+// ---------------------------------------------------------------------------
+
+model HistoricSeason {
+  id        String             @id @default(cuid())
+  label     String             @unique // e.g. "2024/25"
+  // Chronological order for display — oldest first — since the label
+  // string alone doesn't sort correctly forever (e.g. once seasons cross
+  // a decade boundary).
+  order     Int
+  standings HistoricStanding[]
+}
+
+model HistoricStanding {
+  id               String         @id @default(cuid())
+  historicSeasonId String
+  historicSeason   HistoricSeason @relation(fields: [historicSeasonId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  played           Int
+  // Recorded using that era's scoring convention (a joker win counted as 2
+  // wins and a loss un-done, not a separate points value) — treat `won` as
+  // that season's ranking score, not a literal count of gameweeks won.
+  won              Int
+  lost             Int
+
+  @@unique([historicSeasonId, userId])
   @@index([userId])
 }
 

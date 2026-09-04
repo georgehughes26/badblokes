@@ -4,7 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import type { GotmBatch, StandingRow } from "@/lib/standings";
 import { getGotmWinners } from "@/lib/standings";
+import type { AllTimeRow } from "@/lib/all-time";
 import { StandingsTable } from "@/components/standings-table";
+import { AllTimeTable } from "@/components/all-time-table";
 
 function weekRangeLabel(weekNumbers: number[]): string {
   if (weekNumbers.length === 0) return "Not started yet";
@@ -23,14 +25,16 @@ export function TableSwitcher({
   season,
   gotmCurrent,
   gotmCompleted,
+  allTime,
   currentUserId,
 }: {
   season: StandingRow[];
   gotmCurrent: GotmBatch;
   gotmCompleted: GotmBatch[];
+  allTime: AllTimeRow[];
   currentUserId?: string;
 }) {
-  const [view, setView] = useState<"season" | "gotm">("season");
+  const [view, setView] = useState<"season" | "gotm" | "alltime">("season");
 
   return (
     <div className="space-y-4">
@@ -53,11 +57,20 @@ export function TableSwitcher({
         >
           Gambler of the Month
         </button>
+        <button
+          type="button"
+          onClick={() => setView("alltime")}
+          className={`min-h-10 flex-1 cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors sm:flex-none ${
+            view === "alltime" ? "bg-accent text-black" : "text-muted hover:text-foreground"
+          }`}
+        >
+          All Time Table
+        </button>
       </div>
 
-      {view === "season" ? (
-        <StandingsTable rows={season} currentUserId={currentUserId} />
-      ) : (
+      {view === "season" && <StandingsTable rows={season} currentUserId={currentUserId} />}
+      {view === "alltime" && <AllTimeTable rows={allTime} currentUserId={currentUserId} />}
+      {view === "gotm" && (
         <div className="space-y-4">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
