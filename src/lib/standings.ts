@@ -13,8 +13,8 @@ export interface StandingRow {
 
 /**
  * Aggregate Result rows into a standings table, optionally restricted to a
- * subset of gameweeks (e.g. the last 4 settled ones, for Gambler of the
- * Month). Every active user appears even before any gameweek has settled —
+ * subset of gameweeks (e.g. one 4-gameweek Gambler of the Month batch — see
+ * getGotmBatches). Every active user appears even before any gameweek has settled —
  * seeded at zero, so the table is never empty. Sort order matches the spec:
  * points desc, then fewest fines, then most wins, then name (so an all-zero
  * table reads alphabetically instead of in arbitrary insertion order).
@@ -25,8 +25,8 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
     : { seasonId, status: "SETTLED" as const };
 
   // Manual season adjustments (e.g. a carried-over penalty unrelated to any
-  // pick) only apply to the full season table — never to the GOTM rolling
-  // window, which is scoped to a handful of recent gameweeks.
+  // pick) only apply to the full season table — never to a GOTM batch,
+  // which is scoped to that batch's own 4 gameweeks.
   const [results, jokerCounts, activeUsers, adjustments] = await Promise.all([
     prisma.result.findMany({
       where: { gameweek: gameweekFilter },
@@ -99,15 +99,86 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
   );
 }
 
-export const GOTM_WINDOW_GAMEWEEKS = 4;
+export const GOTM_BATCH_SIZE = 4;
 
-/** The most recent N settled gameweeks in a season, for the Gambler of the Month rolling table. */
-export async function getRecentSettledGameweekIds(seasonId: string, windowSize = GOTM_WINDOW_GAMEWEEKS): Promise<string[]> {
+export interface GotmBatch {
+  /** 1-indexed — batch 1 is weeks 1-4, batch 2 is weeks 5-8, etc. */
+  batchNumber: number;
+  /** Every weekNumber that belongs to this batch, whether or not it's settled yet. */
+  weekNumbers: number[];
+  /** Settled gameweeks within this batch only — what the standings below are computed from. */
+  gameweekIds: string[];
+  /** True once all 4 weeks of the batch exist and are settled — it's done and won't change again. */
+  complete: boolean;
+  rows: StandingRow[];
+}
+
+/**
+ * Gambler of the Month, as fixed non-overlapping 4-gameweek batches (weeks
+ * 1-4, then 5-8, ...) rather than a trailing window — a batch fills up,
+ * gets its own frozen table and winner(s), and then the live table resets
+ * to zero for the next batch. `current` is the one still filling up (rows
+ * seeded at zero until its first result lands); `completed` is every
+ * finished batch, most recent first.
+ */
+export async function getGotmBatches(seasonId: string): Promise<{ current: GotmBatch; completed: GotmBatch[] }> {
   const gameweeks = await prisma.gameweek.findMany({
-    where: { seasonId, status: "SETTLED" },
-    orderBy: { weekNumber: "desc" },
-    take: windowSize,
-    select: { id: true },
+    where: { seasonId },
+    orderBy: { weekNumber: "asc" },
+    select: { id: true, weekNumber: true, status: true },
   });
-  return gameweeks.map((g) => g.id);
+
+  interface BatchAccumulator {
+    batchNumber: number;
+    weekNumbers: number[];
+    gameweekIds: string[];
+    totalCount: number;
+  }
+  const batchesByNumber = new Map<number, BatchAccumulator>();
+  for (const gw of gameweeks) {
+    const batchNumber = Math.floor((gw.weekNumber - 1) / GOTM_BATCH_SIZE) + 1;
+    let batch = batchesByNumber.get(batchNumber);
+    if (!batch) {
+      batch = { batchNumber, weekNumbers: [], gameweekIds: [], totalCount: 0 };
+      batchesByNumber.set(batchNumber, batch);
+    }
+    batch.weekNumbers.push(gw.weekNumber);
+    batch.totalCount += 1;
+    if (gw.status === "SETTLED") batch.gameweekIds.push(gw.id);
+  }
+
+  const completed: GotmBatch[] = [];
+  let current: GotmBatch | null = null;
+
+  for (const batch of [...batchesByNumber.values()].sort((a, b) => a.batchNumber - b.batchNumber)) {
+    const complete = batch.totalCount === GOTM_BATCH_SIZE && batch.gameweekIds.length === GOTM_BATCH_SIZE;
+    const rows = await computeStandings(seasonId, batch.gameweekIds);
+    const resolved: GotmBatch = { ...batch, complete, rows };
+    if (complete) completed.push(resolved);
+    // The first batch that isn't done yet is the live one — batches fill
+    // up in order, so nothing past it should exist to consider instead.
+    else if (!current) current = resolved;
+  }
+
+  // Nothing to fill yet (brand-new season, or the last batch just
+  // completed and the next gameweek hasn't been created) — an empty batch
+  // ready to go, exactly as if its first gameweek existed but hadn't settled.
+  if (!current) {
+    current = {
+      batchNumber: completed.length + 1,
+      weekNumbers: [],
+      gameweekIds: [],
+      complete: false,
+      rows: await computeStandings(seasonId, []),
+    };
+  }
+
+  return { current, completed: completed.reverse() };
+}
+
+/** Whoever's tied on the most points in a batch — usually one player, but a points tie is a shared win. */
+export function getGotmWinners(rows: StandingRow[]): StandingRow[] {
+  if (rows.length === 0) return [];
+  const topPoints = rows[0].points;
+  return rows.filter((r) => r.points === topPoints);
 }

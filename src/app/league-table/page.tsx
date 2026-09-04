@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
-import { computeStandings, getRecentSettledGameweekIds } from "@/lib/standings";
+import { computeStandings, getGotmBatches } from "@/lib/standings";
 import { TableSwitcher } from "@/components/table-switcher";
 
 export default async function LeagueTablePage() {
@@ -11,16 +11,12 @@ export default async function LeagueTablePage() {
     return <p className="card text-center text-sm text-muted">No active season yet.</p>;
   }
 
-  const [seasonRows, recentGameweekIds] = await Promise.all([
-    computeStandings(season.id),
-    getRecentSettledGameweekIds(season.id),
-  ]);
-  const gotmRows = await computeStandings(season.id, recentGameweekIds);
+  const [seasonRows, gotm] = await Promise.all([computeStandings(season.id), getGotmBatches(season.id)]);
 
   return (
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-bold">{season.name}</h1>
-      <TableSwitcher season={seasonRows} gotm={gotmRows} currentUserId={user.id} />
+      <TableSwitcher season={seasonRows} gotmCurrent={gotm.current} gotmCompleted={gotm.completed} currentUserId={user.id} />
     </div>
   );
 }
