@@ -77,11 +77,10 @@ export async function getPlayerTrophyCabinet(userId: string): Promise<Trophy[]> 
   return trophies;
 }
 
-/** The starting year of every season a player was crowned champion of, e.g. ["2024", "2026"] from season labels "2024-25" and "2026-27". Sorted ascending, deduped. */
-export function getChampionYears(trophies: Trophy[]): string[] {
-  const years = trophies
+/** Every season a player was crowned champion of, formatted "2025/26" (from a "2025-26"-style label). Sorted ascending, deduped. */
+export function getChampionSeasons(trophies: Trophy[]): string[] {
+  const seasons = trophies
     .filter((t) => t.kind === "champion")
-    .map((t) => t.subtitle.match(/^\d{4}/)?.[0])
-    .filter((y): y is string => Boolean(y));
-  return [...new Set(years)].sort();
+    .map((t) => t.subtitle.replace(/^(\d{4})-(\d{2})$/, "$1/$2"));
+  return [...new Set(seasons)].sort();
 }

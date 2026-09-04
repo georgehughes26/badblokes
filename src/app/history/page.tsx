@@ -5,7 +5,7 @@ import { getGameweekHistory } from "@/lib/history";
 import { computeStandings } from "@/lib/standings";
 import { getUserAllTimeStats } from "@/lib/all-time";
 import { getPlayerCareerHighlights } from "@/lib/career-highlights";
-import { getPlayerTrophyCabinet, getChampionYears } from "@/lib/trophies";
+import { getPlayerTrophyCabinet, getChampionSeasons } from "@/lib/trophies";
 import { formatLondon } from "@/lib/time";
 import { TeamBadge } from "@/components/team-badge";
 import { ProfileHeader } from "@/components/profile-header";
@@ -35,7 +35,7 @@ export default async function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <ProfileHeader name={sessionUser.name} championYears={getChampionYears(trophies)} />
+      <ProfileHeader name={sessionUser.name} championSeasons={getChampionSeasons(trophies)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {season && myCurrentSeason && (
