@@ -26,14 +26,14 @@ export async function MissingPicksBanner({ gameweekId }: { gameweekId: string })
   const names = missing.map((n) => n.toUpperCase());
 
   return (
-    <div className="card flex items-center gap-4 border-danger/50 bg-danger/5 py-4">
+    <div className="card flex flex-col items-center gap-3 border-danger/50 bg-danger/5 py-6 text-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/cundy.jpg"
         alt="Furious talkSPORT-style reaction"
         className="h-20 w-16 shrink-0 rounded-lg border-2 border-danger object-cover shadow-[0_4px_16px_-4px_rgba(0,0,0,0.6)]"
       />
-      <div className="min-w-0">
+      <div>
         <p className="font-display text-lg leading-tight font-bold text-danger sm:text-xl">
           HAAAAAAAAAS ANYONE SEEN {possessiveList(names)} TEAM{missing.length > 1 ? "S" : ""}?!
         </p>
