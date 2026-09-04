@@ -1,10 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { computeStandings, getGotmBatches, getGotmWinners } from "@/lib/standings";
 
+export interface WeekRange {
+  start: number;
+  end: number;
+}
+
 export interface CareerHighlights {
   mostSelectedTeam: { name: string; shortName: string; crestUrl: string | null; count: number } | null;
   longestWinStreak: number;
+  /** Which gameweeks the longest win streak actually spanned, e.g. { start: 1, end: 6 } for "GW1 to GW6". Null when the streak is 0 (no results yet). */
+  longestWinStreakRange: WeekRange | null;
   longestLossStreak: number;
+  longestLossStreakRange: WeekRange | null;
   /** Gameweeks (across every app-tracked season) this player's cumulative table position was 1st, once results existed to rank on — never the pre-results alphabetical starting order. */
   gameweeksAtNumberOne: number;
   /** Same idea, bottom-2 (mirrors StandingsTable's own relegation-zone rule). */
@@ -31,7 +39,11 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
     }),
     prisma.result.findMany({
       where: { userId },
-      select: { breachNoPick: true, breachTeamLost: true, gameweek: { select: { weekNumber: true, season: { select: { startDate: true } } } } },
+      select: {
+        breachNoPick: true,
+        breachTeamLost: true,
+        gameweek: { select: { weekNumber: true, season: { select: { startDate: true } } } },
+      },
       orderBy: [{ gameweek: { season: { startDate: "asc" } } }, { gameweek: { weekNumber: "asc" } }],
     }),
     prisma.fineLedgerEntry.aggregate({ where: { userId }, _sum: { amount: true } }),
@@ -47,20 +59,33 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
   }
 
   let longestWinStreak = 0;
+  let longestWinStreakRange: WeekRange | null = null;
   let longestLossStreak = 0;
+  let longestLossStreakRange: WeekRange | null = null;
   let currentWin = 0;
+  let currentWinStart = 0;
   let currentLoss = 0;
+  let currentLossStart = 0;
   for (const r of resultsInOrder) {
+    const week = r.gameweek.weekNumber;
     // A no-pick is a loss for streak purposes too — same rule computeStandings uses.
     if (r.breachNoPick || r.breachTeamLost) {
+      if (currentLoss === 0) currentLossStart = week;
       currentLoss += 1;
       currentWin = 0;
+      if (currentLoss > longestLossStreak) {
+        longestLossStreak = currentLoss;
+        longestLossStreakRange = { start: currentLossStart, end: week };
+      }
     } else {
+      if (currentWin === 0) currentWinStart = week;
       currentWin += 1;
       currentLoss = 0;
+      if (currentWin > longestWinStreak) {
+        longestWinStreak = currentWin;
+        longestWinStreakRange = { start: currentWinStart, end: week };
+      }
     }
-    longestWinStreak = Math.max(longestWinStreak, currentWin);
-    longestLossStreak = Math.max(longestLossStreak, currentLoss);
   }
 
   let gameweeksAtNumberOne = 0;
@@ -91,7 +116,9 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
   return {
     mostSelectedTeam,
     longestWinStreak,
+    longestWinStreakRange,
     longestLossStreak,
+    longestLossStreakRange,
     gameweeksAtNumberOne,
     gameweeksInRelegationZone,
     totalFines: finesAgg._sum.amount ?? 0,

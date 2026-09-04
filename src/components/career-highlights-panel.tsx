@@ -1,6 +1,11 @@
 import type { SVGProps } from "react";
-import type { CareerHighlights } from "@/lib/career-highlights";
+import type { CareerHighlights, WeekRange } from "@/lib/career-highlights";
 import { TeamBadge } from "@/components/team-badge";
+
+function formatRange(range: WeekRange | null): string | undefined {
+  if (!range) return undefined;
+  return range.start === range.end ? `GW${range.start}` : `GW${range.start} to GW${range.end}`;
+}
 
 function FlameIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -83,8 +88,17 @@ function HighlightRow({
 
 /** Career highlights derived from app-tracked seasons only (see lib/career-highlights.ts) — there's no gameweek-level data from before the app existed to compute these from. */
 export function CareerHighlightsPanel({ highlights }: { highlights: CareerHighlights }) {
-  const { mostSelectedTeam, longestWinStreak, longestLossStreak, gameweeksAtNumberOne, gameweeksInRelegationZone, totalFines, gotmWon } =
-    highlights;
+  const {
+    mostSelectedTeam,
+    longestWinStreak,
+    longestWinStreakRange,
+    longestLossStreak,
+    longestLossStreakRange,
+    gameweeksAtNumberOne,
+    gameweeksInRelegationZone,
+    totalFines,
+    gotmWon,
+  } = highlights;
 
   return (
     <div className="card space-y-1 p-0">
@@ -92,11 +106,13 @@ export function CareerHighlightsPanel({ highlights }: { highlights: CareerHighli
       <div className="divide-y divide-border">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="flex min-w-0 items-center gap-3">
-            {mostSelectedTeam ? (
-              <TeamBadge name={mostSelectedTeam.name} shortName={mostSelectedTeam.shortName} crestUrl={mostSelectedTeam.crestUrl} size="sm" />
-            ) : (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 text-muted">—</span>
-            )}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+              {mostSelectedTeam ? (
+                <TeamBadge name={mostSelectedTeam.name} shortName={mostSelectedTeam.shortName} crestUrl={mostSelectedTeam.crestUrl} size="sm" />
+              ) : (
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-muted">—</span>
+              )}
+            </span>
             <span className="truncate text-sm text-muted">Most Selected Team</span>
           </span>
           <span className="shrink-0 text-right">
@@ -113,12 +129,14 @@ export function CareerHighlightsPanel({ highlights }: { highlights: CareerHighli
           iconClasses="bg-accent/10 text-accent"
           label="Longest Winning Streak"
           value={`${longestWinStreak} GW`}
+          sublabel={formatRange(longestWinStreakRange)}
         />
         <HighlightRow
           icon={<TrendDownIcon className="h-5 w-5" />}
           iconClasses="bg-danger/10 text-danger"
           label="Longest Losing Streak"
           value={`${longestLossStreak} GW`}
+          sublabel={formatRange(longestLossStreakRange)}
         />
         <HighlightRow
           icon={<CrownIcon className="h-5 w-5" />}

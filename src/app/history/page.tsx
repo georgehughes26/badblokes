@@ -5,7 +5,7 @@ import { getGameweekHistory } from "@/lib/history";
 import { computeStandings } from "@/lib/standings";
 import { getUserAllTimeStats } from "@/lib/all-time";
 import { getPlayerCareerHighlights } from "@/lib/career-highlights";
-import { getPlayerTrophyCabinet } from "@/lib/trophies";
+import { getPlayerTrophyCabinet, getChampionYears } from "@/lib/trophies";
 import { formatLondon } from "@/lib/time";
 import { TeamBadge } from "@/components/team-badge";
 import { ProfileHeader } from "@/components/profile-header";
@@ -23,8 +23,7 @@ export default async function HistoryPage() {
   const sessionUser = await requireUser();
   const season = await prisma.season.findFirst({ where: { active: true } });
 
-  const [user, seasons, seasonStandings, allTime, highlights, trophies] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: sessionUser.id }, select: { name: true, joinedAt: true } }),
+  const [seasons, seasonStandings, allTime, highlights, trophies] = await Promise.all([
     getGameweekHistory(sessionUser.id),
     season ? computeStandings(season.id) : Promise.resolve([]),
     getUserAllTimeStats(sessionUser.id),
@@ -36,7 +35,7 @@ export default async function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      <ProfileHeader name={user.name} joinedAt={user.joinedAt} />
+      <ProfileHeader name={sessionUser.name} championYears={getChampionYears(trophies)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {season && myCurrentSeason && (
