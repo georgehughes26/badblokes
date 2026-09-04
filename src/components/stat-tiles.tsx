@@ -1,11 +1,12 @@
-/** Played / Won / Lost / Win % tiles — used for both the current-season and all-time halves of a player's profile. */
-export function StatTiles({ played, won, lost }: { played: number; won: number; lost: number }) {
+/** Played / Won / Lost / Points / Win % tiles — used for both the current-season and all-time halves of a player's profile. */
+export function StatTiles({ played, won, lost, points }: { played: number; won: number; lost: number; points: number }) {
   const winPct = played > 0 ? Math.round((won / played) * 100) : 0;
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3">
       <StatTile label="Played" value={played} />
       <StatTile label="Won" value={won} />
       <StatTile label="Lost" value={lost} />
+      <StatTile label="Points" value={points} />
       <StatTile label="Win %" value={`${winPct}%`} accent />
     </div>
   );

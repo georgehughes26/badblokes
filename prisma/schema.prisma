@@ -31,17 +31,18 @@ model User {
   active       Boolean  @default(true)
   joinedAt     DateTime @default(now())
 
-  sessions          Session[]
-  picks             Pick[]
-  results           Result[]
-  fineEntries       FineLedgerEntry[]  @relation("FineOwner")
-  recordedFines     FineLedgerEntry[]  @relation("FineRecorder")
-  createdInvites    InviteCode[]       @relation("InviteCreator")
-  auditLogs         AuditLog[]
-  verifiedSlips     BetSlip[]          @relation("SlipVerifier")
-  pointsAdjustments PointsAdjustment[]
-  noPickSlips       NoPickSlip[]
-  historicStandings HistoricStanding[]
+  sessions                  Session[]
+  picks                     Pick[]
+  results                   Result[]
+  fineEntries               FineLedgerEntry[]          @relation("FineOwner")
+  recordedFines             FineLedgerEntry[]          @relation("FineRecorder")
+  createdInvites            InviteCode[]               @relation("InviteCreator")
+  auditLogs                 AuditLog[]
+  verifiedSlips             BetSlip[]                  @relation("SlipVerifier")
+  pointsAdjustments         PointsAdjustment[]
+  noPickSlips               NoPickSlip[]
+  historicStandings         HistoricStanding[]
+  historicPointsAdjustments HistoricPointsAdjustment[]
 
   @@index([role])
 }
@@ -312,6 +313,22 @@ model HistoricStanding {
   lost             Int
 
   @@unique([historicSeasonId, userId])
+  @@index([userId])
+}
+
+// A career-wide points penalty/bonus from before the app existed — e.g. a
+// "First To Leave <year>" forfeit — that doesn't belong to one specific
+// historic season. Mirrors PointsAdjustment, but adjusts a player's overall
+// All Time points total only, never their P/W/L (those stay the real
+// per-season record) and never a specific in-app Season's total.
+model HistoricPointsAdjustment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int
+  reason    String
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }
 

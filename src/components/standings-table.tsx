@@ -6,7 +6,22 @@ const MEDAL_CLASS: Record<number, string> = {
   2: "text-[#c07a4a]",
 };
 
-export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; currentUserId?: string }) {
+export interface StandingsNote {
+  userId: string;
+  points: number;
+  reason: string;
+}
+
+/** `notes` asterisks a player's points and lists why underneath — for a manual PointsAdjustment (e.g. a "First To Leave" forfeit) that isn't obvious from the picks themselves. Only pass this for a full-season table; a GOTM batch never carries adjustments. */
+export function StandingsTable({
+  rows,
+  currentUserId,
+  notes,
+}: {
+  rows: StandingRow[];
+  currentUserId?: string;
+  notes?: StandingsNote[];
+}) {
   if (rows.length === 0) {
     return <p className="card text-center text-sm text-muted">No settled gameweeks yet.</p>;
   }
@@ -53,7 +68,10 @@ export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; c
                 <td className="hidden px-3 py-3 text-right text-muted sm:table-cell">{row.played}</td>
                 <td className="hidden px-3 py-3 text-right text-muted sm:table-cell">{row.won}</td>
                 <td className="hidden px-3 py-3 text-right text-muted sm:table-cell">{row.lost}</td>
-                <td className="font-display px-3 py-3 text-right text-base font-bold">{row.points}</td>
+                <td className="font-display px-3 py-3 text-right text-base font-bold">
+                  {row.points}
+                  {notes?.some((n) => n.userId === row.userId) && <sup className="text-muted">*</sup>}
+                </td>
                 <td className="px-3 py-3 text-right text-danger sm:px-4">{row.fines > 0 ? `£${row.fines}` : "—"}</td>
                 <td className="hidden px-4 py-3 text-right text-muted sm:table-cell">{row.jokersUsed}/2</td>
               </tr>
@@ -61,6 +79,18 @@ export function StandingsTable({ rows, currentUserId }: { rows: StandingRow[]; c
           })}
         </tbody>
       </table>
+      {notes && notes.length > 0 && (
+        <div className="space-y-0.5 border-t border-border px-4 py-3 text-xs text-muted">
+          {notes.map((note) => {
+            const row = rows.find((r) => r.userId === note.userId);
+            return (
+              <p key={note.userId}>
+                * {row?.name ?? "?"}: {note.points > 0 ? `+${note.points}` : note.points} — {note.reason}
+              </p>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

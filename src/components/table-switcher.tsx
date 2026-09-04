@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import type { GotmBatch, StandingRow } from "@/lib/standings";
 import { getGotmWinners } from "@/lib/standings";
-import type { AllTimeRow } from "@/lib/all-time";
-import { StandingsTable } from "@/components/standings-table";
+import type { AllTimeAdjustmentNote, AllTimeRow } from "@/lib/all-time";
+import { StandingsTable, type StandingsNote } from "@/components/standings-table";
 import { AllTimeTable } from "@/components/all-time-table";
 
 function weekRangeLabel(weekNumbers: number[]): string {
@@ -23,15 +23,19 @@ function winnersLabel(winners: StandingRow[]): string {
 
 export function TableSwitcher({
   season,
+  seasonNotes,
   gotmCurrent,
   gotmCompleted,
   allTime,
+  allTimeNotes,
   currentUserId,
 }: {
   season: StandingRow[];
+  seasonNotes?: StandingsNote[];
   gotmCurrent: GotmBatch;
   gotmCompleted: GotmBatch[];
   allTime: AllTimeRow[];
+  allTimeNotes?: AllTimeAdjustmentNote[];
   currentUserId?: string;
 }) {
   const [view, setView] = useState<"season" | "gotm" | "alltime">("season");
@@ -68,8 +72,8 @@ export function TableSwitcher({
         </button>
       </div>
 
-      {view === "season" && <StandingsTable rows={season} currentUserId={currentUserId} />}
-      {view === "alltime" && <AllTimeTable rows={allTime} currentUserId={currentUserId} />}
+      {view === "season" && <StandingsTable rows={season} currentUserId={currentUserId} notes={seasonNotes} />}
+      {view === "alltime" && <AllTimeTable rows={allTime} currentUserId={currentUserId} notes={allTimeNotes} />}
       {view === "gotm" && (
         <div className="space-y-4">
           <div>

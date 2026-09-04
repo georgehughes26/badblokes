@@ -36,14 +36,19 @@ export default async function HistoryPage() {
       {season && myCurrentSeason && (
         <section className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">{season.name}</p>
-          <StatTiles played={myCurrentSeason.played} won={myCurrentSeason.won} lost={myCurrentSeason.lost} />
+          <StatTiles
+            played={myCurrentSeason.played}
+            won={myCurrentSeason.won}
+            lost={myCurrentSeason.lost}
+            points={myCurrentSeason.points}
+          />
         </section>
       )}
 
       {allTime && (
         <section className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">All Time</p>
-          <StatTiles played={allTime.played} won={allTime.won} lost={allTime.lost} />
+          <StatTiles played={allTime.played} won={allTime.won} lost={allTime.lost} points={allTime.points} />
         </section>
       )}
 
