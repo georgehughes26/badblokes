@@ -7,7 +7,7 @@ export interface WeekRange {
 }
 
 export interface CareerHighlights {
-  mostSelectedTeam: { name: string; shortName: string; crestUrl: string | null; count: number } | null;
+  mostSelectedTeam: { name: string; shortName: string; crestUrl: string | null; count: number; won: number; lost: number } | null;
   longestWinStreak: number;
   /** Which gameweeks the longest win streak actually spanned, e.g. { start: 1, end: 6 } for "GW1 to GW6". Null when the streak is 0 (no results yet). */
   longestWinStreakRange: WeekRange | null;
@@ -29,14 +29,8 @@ export interface CareerHighlights {
  * back then), so this can only ever reflect app history.
  */
 export async function getPlayerCareerHighlights(userId: string): Promise<CareerHighlights> {
-  const [topTeamPick, resultsInOrder, finesAgg, seasons] = await Promise.all([
-    prisma.pick.groupBy({
-      by: ["teamId"],
-      where: { userId },
-      _count: { _all: true },
-      orderBy: { _count: { teamId: "desc" } },
-      take: 1,
-    }),
+  const [picks, resultsInOrder, finesAgg, seasons] = await Promise.all([
+    prisma.pick.findMany({ where: { userId }, include: { team: true } }),
     prisma.result.findMany({
       where: { userId },
       select: {
@@ -50,12 +44,35 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
     prisma.season.findMany({ select: { id: true } }),
   ]);
 
-  let mostSelectedTeam: CareerHighlights["mostSelectedTeam"] = null;
-  if (topTeamPick.length > 0) {
-    const team = await prisma.team.findUnique({ where: { id: topTeamPick[0].teamId } });
-    if (team) {
-      mostSelectedTeam = { name: team.name, shortName: team.shortName, crestUrl: team.crestUrl, count: topTeamPick[0]._count._all };
+  interface TeamTally {
+    name: string;
+    shortName: string;
+    crestUrl: string | null;
+    count: number;
+    won: number;
+    lost: number;
+  }
+  const byTeam = new Map<string, TeamTally>();
+  for (const p of picks) {
+    const tally = byTeam.get(p.teamId) ?? { name: p.team.name, shortName: p.team.shortName, crestUrl: p.team.crestUrl, count: 0, won: 0, lost: 0 };
+    tally.count += 1;
+    if (p.resultEnteredAt) {
+      // Same combine rule as everywhere else: a 2-up pick counts as a win.
+      if (p.resultWon || p.resultWentTwoUp) tally.won += 1;
+      else tally.lost += 1;
     }
+    byTeam.set(p.teamId, tally);
+  }
+
+  let mostSelectedTeam: CareerHighlights["mostSelectedTeam"] = null;
+  if (byTeam.size > 0) {
+    const tallies = [...byTeam.values()];
+    const maxCount = Math.max(...tallies.map((t) => t.count));
+    const tiedOnCount = tallies.filter((t) => t.count === maxCount);
+    // Most-picked wins outright; a genuine tie on pick count is broken by
+    // whichever of those teams has won the most, not by pick order.
+    const [winner] = tiedOnCount.sort((a, b) => b.won - a.won || a.name.localeCompare(b.name));
+    mostSelectedTeam = { name: winner.name, shortName: winner.shortName, crestUrl: winner.crestUrl, count: winner.count, won: winner.won, lost: winner.lost };
   }
 
   let longestWinStreak = 0;

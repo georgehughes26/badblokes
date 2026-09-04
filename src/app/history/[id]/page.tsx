@@ -27,7 +27,7 @@ export default async function HistoryGameweekPage({ params }: { params: Promise<
   return (
     <div className="space-y-4">
       <Link href="/history" className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground">
-        <span aria-hidden>&larr;</span> History
+        <span aria-hidden>&larr;</span> Profile
       </Link>
       <p className="text-center text-sm text-muted">
         {gameweek.season.name} — Gameweek {gameweek.weekNumber}

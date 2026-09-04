@@ -119,7 +119,7 @@ export function CareerHighlightsPanel({ highlights }: { highlights: CareerHighli
             <span className="font-display block text-base font-bold">{mostSelectedTeam?.name ?? "—"}</span>
             {mostSelectedTeam && (
               <span className="block text-xs text-muted">
-                {mostSelectedTeam.count} pick{mostSelectedTeam.count === 1 ? "" : "s"}
+                {mostSelectedTeam.count} pick{mostSelectedTeam.count === 1 ? "" : "s"} - {mostSelectedTeam.won}W {mostSelectedTeam.lost}L
               </span>
             )}
           </span>
