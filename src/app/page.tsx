@@ -11,6 +11,7 @@ import { EditPickPanel } from "@/components/edit-pick-panel";
 import { GameweekSummaryView } from "@/components/gameweek-summary";
 import { TeamBadge } from "@/components/team-badge";
 import { MissingPicksBanner } from "@/components/missing-picks-banner";
+import { PaymentDueBanner } from "@/components/payment-due-banner";
 
 export default async function HomePage() {
   const user = await requireUser();
@@ -40,6 +41,12 @@ export default async function HomePage() {
     </p>
   );
 
+  // Shows what this player owes when we're in a GOTM "pay window" (the first
+  // gameweek of a batch); renders nothing otherwise. See the component.
+  const paymentBanner = (
+    <PaymentDueBanner userId={user.id} seasonId={gameweek.seasonId} weekNumber={gameweek.weekNumber} />
+  );
+
   // Keep showing "you've picked" right up until kick-off, even after
   // picking closes — that's still the most useful thing for the viewer.
   // Once kick-off has passed, everyone (picked or not) drops into the
@@ -53,6 +60,7 @@ export default async function HomePage() {
       <div className="space-y-4">
         {context.phase === "LOCKED" && <MissingPicksBanner gameweekId={gameweek.id} />}
         {heading}
+        {paymentBanner}
         <div className="card py-6">
           {context.phase === "OPEN" ? (
             <Countdown target={gameweek.pickDeadlineAt.toISOString()} label="Picks close in" />
@@ -116,6 +124,7 @@ export default async function HomePage() {
     return (
       <div className="space-y-4">
         {heading}
+        {paymentBanner}
         <div className="card py-10">
           <Countdown target={gameweek.picksOpenAt.toISOString()} label="Picks open in" />
         </div>
@@ -128,6 +137,7 @@ export default async function HomePage() {
     return (
       <div className="space-y-4">
         {heading}
+        {paymentBanner}
         <div className="card py-6">
           <Countdown target={gameweek.pickDeadlineAt.toISOString()} label="Picks close in" />
         </div>
@@ -167,6 +177,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-4">
       {heading}
+      {paymentBanner}
       <div className="card py-6">
         <Countdown target={gameweek.slipDeadlineAt.toISOString()} label="Kick-off in" />
       </div>
