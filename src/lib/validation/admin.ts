@@ -55,3 +55,25 @@ export const gameweekDeadlinesSchema = z
     message: "The slip deadline must be on or after the pick deadline",
     path: ["slipDeadlineAt"],
   });
+
+const boolFromForm = z.enum(["true", "false"]).transform((v) => v === "true");
+
+export const gotmStakePaidSchema = z.object({
+  seasonId: z.string().min(1),
+  batchNumber: z.coerce.number().int().min(1),
+  userId: z.string().min(1),
+  paid: boolFromForm,
+});
+
+export const batchFinesPaidSchema = z.object({
+  seasonId: z.string().min(1),
+  batchNumber: z.coerce.number().int().min(1),
+  userId: z.string().min(1),
+  paid: boolFromForm,
+});
+
+export const gotmPayoutSchema = z.object({
+  seasonId: z.string().min(1),
+  batchNumber: z.coerce.number().int().min(1),
+  paidOut: boolFromForm,
+});

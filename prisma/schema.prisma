@@ -43,6 +43,9 @@ model User {
   noPickSlips               NoPickSlip[]
   historicStandings         HistoricStanding[]
   historicPointsAdjustments HistoricPointsAdjustment[]
+  gotmStakePayments         GotmStakePayment[]         @relation("GotmStakeOwner")
+  recordedGotmStakes        GotmStakePayment[]         @relation("GotmStakeRecorder")
+  recordedGotmPayouts       GotmBatchPayout[]          @relation("GotmPayoutRecorder")
 
   @@index([role])
 }
@@ -89,6 +92,8 @@ model Season {
 
   gameweeks         Gameweek[]
   pointsAdjustments PointsAdjustment[]
+  gotmStakePayments GotmStakePayment[]
+  gotmBatchPayouts  GotmBatchPayout[]
 
   @@index([active])
 }
@@ -276,6 +281,49 @@ model PointsAdjustment {
 
   @@index([seasonId])
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Gambler of the Month money — settled per 4-gameweek batch (see
+// lib/standings.ts GOTM_BATCH_SIZE). Two things move each batch:
+//   1. A flat GOTM_STAKE (£10) each player pays IN before the batch starts
+//      (batch N's stake is due by GW ((N-1)*4 + 1)'s pick deadline). The
+//      whole pot goes to that batch's winner once it's done.
+//   2. That batch's accumulated fines, due by the NEXT batch's first
+//      gameweek's pick deadline — the fines themselves double if late (the
+//      stake never does). Fine payment is tracked on FineLedgerEntry.paid,
+//      not here.
+// ---------------------------------------------------------------------------
+
+model GotmStakePayment {
+  id           String    @id @default(cuid())
+  seasonId     String
+  season       Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  batchNumber  Int
+  userId       String
+  user         User      @relation("GotmStakeOwner", fields: [userId], references: [id], onDelete: Cascade)
+  paid         Boolean   @default(false)
+  paidAt       DateTime?
+  recordedById String?
+  recordedBy   User?     @relation("GotmStakeRecorder", fields: [recordedById], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@unique([seasonId, batchNumber, userId])
+  @@index([userId])
+  @@index([seasonId, batchNumber])
+}
+
+// One row = "the winner of this batch has been paid the pot". Absence = not paid out yet.
+model GotmBatchPayout {
+  id           String   @id @default(cuid())
+  seasonId     String
+  season       Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  batchNumber  Int
+  paidOutAt    DateTime @default(now())
+  recordedById String?
+  recordedBy   User?    @relation("GotmPayoutRecorder", fields: [recordedById], references: [id])
+
+  @@unique([seasonId, batchNumber])
 }
 
 // ---------------------------------------------------------------------------

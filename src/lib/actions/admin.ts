@@ -12,7 +12,11 @@ import {
   createTeamSchema,
   gameweekDeadlinesSchema,
   gameweekStatusSchema,
+  gotmPayoutSchema,
+  gotmStakePaidSchema,
+  batchFinesPaidSchema,
 } from "@/lib/validation/admin";
+import { firstWeekOfBatch, GOTM_BATCH_SIZE } from "@/lib/standings";
 
 function fail(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -223,4 +227,95 @@ export async function updateGameweekDeadlines(formData: FormData) {
 
   revalidatePath(`/admin/gameweeks/${gameweekId}`);
   redirect(`/admin/gameweeks/${gameweekId}?success=Deadlines%20updated`);
+}
+
+// ---------------------------------------------------------------------------
+// GOTM money — per-batch settlement (see lib/batch-settlement.ts)
+// ---------------------------------------------------------------------------
+
+export async function setGotmStakePaid(formData: FormData) {
+  const admin = await requireAdmin();
+  const parsed = gotmStakePaidSchema.safeParse({
+    seasonId: formData.get("seasonId"),
+    batchNumber: formData.get("batchNumber"),
+    userId: formData.get("userId"),
+    paid: formData.get("paid"),
+  });
+  if (!parsed.success) fail("/admin/fines", issueMessage(parsed.error.issues));
+  const { seasonId, batchNumber, userId, paid } = parsed.data;
+
+  await prisma.gotmStakePayment.upsert({
+    where: { seasonId_batchNumber_userId: { seasonId, batchNumber, userId } },
+    create: { seasonId, batchNumber, userId, paid, paidAt: paid ? new Date() : null, recordedById: admin.id },
+    update: { paid, paidAt: paid ? new Date() : null, recordedById: admin.id },
+  });
+  await logAudit({
+    actorId: admin.id,
+    action: paid ? "MARK_PAID" : "MARK_UNPAID",
+    entityType: "GotmStakePayment",
+    entityId: `${seasonId}:${batchNumber}:${userId}`,
+    after: { paid },
+  });
+
+  revalidatePath("/admin/fines");
+}
+
+export async function setGotmPaidOut(formData: FormData) {
+  const admin = await requireAdmin();
+  const parsed = gotmPayoutSchema.safeParse({
+    seasonId: formData.get("seasonId"),
+    batchNumber: formData.get("batchNumber"),
+    paidOut: formData.get("paidOut"),
+  });
+  if (!parsed.success) fail("/admin/fines", issueMessage(parsed.error.issues));
+  const { seasonId, batchNumber, paidOut } = parsed.data;
+
+  if (paidOut) {
+    await prisma.gotmBatchPayout.upsert({
+      where: { seasonId_batchNumber: { seasonId, batchNumber } },
+      create: { seasonId, batchNumber, recordedById: admin.id },
+      update: { paidOutAt: new Date(), recordedById: admin.id },
+    });
+  } else {
+    await prisma.gotmBatchPayout.deleteMany({ where: { seasonId, batchNumber } });
+  }
+  await logAudit({
+    actorId: admin.id,
+    action: paidOut ? "MARK_PAID" : "MARK_UNPAID",
+    entityType: "GotmBatchPayout",
+    entityId: `${seasonId}:${batchNumber}`,
+    after: { paidOut },
+  });
+
+  revalidatePath("/admin/fines");
+}
+
+export async function setBatchFinesPaid(formData: FormData) {
+  const admin = await requireAdmin();
+  const parsed = batchFinesPaidSchema.safeParse({
+    seasonId: formData.get("seasonId"),
+    batchNumber: formData.get("batchNumber"),
+    userId: formData.get("userId"),
+    paid: formData.get("paid"),
+  });
+  if (!parsed.success) fail("/admin/fines", issueMessage(parsed.error.issues));
+  const { seasonId, batchNumber, userId, paid } = parsed.data;
+
+  const first = firstWeekOfBatch(batchNumber);
+  const batchWeeks = Array.from({ length: GOTM_BATCH_SIZE }, (_, i) => first + i);
+
+  const result = await prisma.fineLedgerEntry.updateMany({
+    where: { userId, gameweek: { seasonId, weekNumber: { in: batchWeeks } } },
+    data: { paid, paidAt: paid ? new Date() : null, recordedById: admin.id },
+  });
+  await logAudit({
+    actorId: admin.id,
+    action: paid ? "MARK_PAID" : "MARK_UNPAID",
+    entityType: "FineLedgerEntry",
+    entityId: `${seasonId}:batch${batchNumber}:${userId}`,
+    after: { paid, entriesUpdated: result.count, weeks: batchWeeks },
+  });
+
+  revalidatePath("/admin/fines");
+  revalidatePath("/fines");
 }

@@ -101,6 +101,19 @@ export async function computeStandings(seasonId: string, gameweekIds?: string[])
 
 export const GOTM_BATCH_SIZE = 4;
 
+/** Flat GOTM entry stake (£) every player pays in per batch — the whole pot goes to that batch's winner. See lib/batch-settlement.ts. */
+export const GOTM_STAKE = 10;
+
+/** Weeks 1-4 -> batch 1, 5-8 -> batch 2, ... */
+export function batchNumberForWeek(weekNumber: number): number {
+  return Math.floor((weekNumber - 1) / GOTM_BATCH_SIZE) + 1;
+}
+
+/** The first gameweek of a batch: batch 1 -> 1, batch 2 -> 5, ... */
+export function firstWeekOfBatch(batchNumber: number): number {
+  return (batchNumber - 1) * GOTM_BATCH_SIZE + 1;
+}
+
 export interface GotmBatch {
   /** 1-indexed — batch 1 is weeks 1-4, batch 2 is weeks 5-8, etc. */
   batchNumber: number;
@@ -136,7 +149,7 @@ export async function getGotmBatches(seasonId: string): Promise<{ current: GotmB
   }
   const batchesByNumber = new Map<number, BatchAccumulator>();
   for (const gw of gameweeks) {
-    const batchNumber = Math.floor((gw.weekNumber - 1) / GOTM_BATCH_SIZE) + 1;
+    const batchNumber = batchNumberForWeek(gw.weekNumber);
     let batch = batchesByNumber.get(batchNumber);
     if (!batch) {
       batch = { batchNumber, weekNumbers: [], gameweekIds: [], totalCount: 0 };
@@ -181,4 +194,12 @@ export function getGotmWinners(rows: StandingRow[]): StandingRow[] {
   if (rows.length === 0) return [];
   const topPoints = rows[0].points;
   return rows.filter((r) => r.points === topPoints);
+}
+
+/** "Chaz", "Chaz and Tom", "Chaz, Tom and Jack", or "5-way tie" once it's too many to name. */
+export function formatWinners(names: string[]): string {
+  if (names.length === 0) return "—";
+  if (names.length === 1) return names[0];
+  if (names.length > 3) return `${names.length}-way tie`;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
