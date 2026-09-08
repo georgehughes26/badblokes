@@ -40,6 +40,8 @@ export interface BatchLedger {
   /** GOTM_STAKE x everyone in the pool — the whole pot goes to the winner(s). */
   gotmPotTotal: number;
   paidOut: boolean;
+  /** True when the batch was a tie and the whole GOTM pot was tipped into the fines pot instead of paid to a winner. */
+  rolledToPot: boolean;
   rows: BatchDueRow[];
   stakeCollected: number;
   stakeOutstanding: number;
@@ -53,6 +55,7 @@ interface Ctx {
   finesByUserWeek: Map<string, { amount: number; paid: boolean; paidAt: Date | null }>;
   stakePaidByKey: Map<string, boolean>;
   payoutBatches: Set<number>;
+  rolledToPotBatches: Set<number>;
   activeUsers: { id: string; name: string; role: string }[];
   now: Date;
 }
@@ -73,7 +76,7 @@ async function loadCtx(seasonId: string): Promise<Ctx> {
       select: { userId: true, amount: true, paid: true, paidAt: true, gameweek: { select: { weekNumber: true } } },
     }),
     prisma.gotmStakePayment.findMany({ where: { seasonId }, select: { batchNumber: true, userId: true, paid: true } }),
-    prisma.gotmBatchPayout.findMany({ where: { seasonId }, select: { batchNumber: true } }),
+    prisma.gotmBatchPayout.findMany({ where: { seasonId }, select: { batchNumber: true, rolledToPot: true } }),
     prisma.user.findMany({ where: { active: true }, select: { id: true, name: true, role: true } }),
   ]);
 
@@ -94,6 +97,7 @@ async function loadCtx(seasonId: string): Promise<Ctx> {
 
   const stakePaidByKey = new Map(stakes.map((s) => [`${s.batchNumber}:${s.userId}`, s.paid]));
   const payoutBatches = new Set(payouts.map((p) => p.batchNumber));
+  const rolledToPotBatches = new Set(payouts.filter((p) => p.rolledToPot).map((p) => p.batchNumber));
 
   return {
     weeksById,
@@ -102,6 +106,7 @@ async function loadCtx(seasonId: string): Promise<Ctx> {
     finesByUserWeek,
     stakePaidByKey,
     payoutBatches,
+    rolledToPotBatches,
     activeUsers,
     now: new Date(),
   };
@@ -176,6 +181,7 @@ function buildLedger(batch: GotmBatch, ctx: Ctx): BatchLedger {
     winnerNames,
     gotmPotTotal: GOTM_STAKE * rows.length,
     paidOut: ctx.payoutBatches.has(batch.batchNumber),
+    rolledToPot: ctx.rolledToPotBatches.has(batch.batchNumber),
     rows,
     stakeCollected: rows.filter((r) => r.stakePaid).length * GOTM_STAKE,
     stakeOutstanding: rows.filter((r) => !r.stakePaid).length * GOTM_STAKE,

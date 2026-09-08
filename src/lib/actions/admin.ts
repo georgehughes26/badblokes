@@ -265,29 +265,31 @@ export async function setGotmPaidOut(formData: FormData) {
   const parsed = gotmPayoutSchema.safeParse({
     seasonId: formData.get("seasonId"),
     batchNumber: formData.get("batchNumber"),
-    paidOut: formData.get("paidOut"),
+    outcome: formData.get("outcome"),
   });
   if (!parsed.success) fail("/admin/fines", issueMessage(parsed.error.issues));
-  const { seasonId, batchNumber, paidOut } = parsed.data;
+  const { seasonId, batchNumber, outcome } = parsed.data;
 
-  if (paidOut) {
+  if (outcome === "none") {
+    await prisma.gotmBatchPayout.deleteMany({ where: { seasonId, batchNumber } });
+  } else {
+    const rolledToPot = outcome === "pot";
     await prisma.gotmBatchPayout.upsert({
       where: { seasonId_batchNumber: { seasonId, batchNumber } },
-      create: { seasonId, batchNumber, recordedById: admin.id },
-      update: { paidOutAt: new Date(), recordedById: admin.id },
+      create: { seasonId, batchNumber, rolledToPot, recordedById: admin.id },
+      update: { paidOutAt: new Date(), rolledToPot, recordedById: admin.id },
     });
-  } else {
-    await prisma.gotmBatchPayout.deleteMany({ where: { seasonId, batchNumber } });
   }
   await logAudit({
     actorId: admin.id,
-    action: paidOut ? "MARK_PAID" : "MARK_UNPAID",
+    action: outcome === "none" ? "MARK_UNPAID" : "MARK_PAID",
     entityType: "GotmBatchPayout",
     entityId: `${seasonId}:${batchNumber}`,
-    after: { paidOut },
+    after: { outcome },
   });
 
   revalidatePath("/admin/fines");
+  revalidatePath("/fines");
 }
 
 export async function setBatchFinesPaid(formData: FormData) {

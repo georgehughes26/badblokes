@@ -36,14 +36,19 @@ export default async function FinesGotmBatchPage({ params }: { params: Promise<{
         <p className="font-display text-2xl font-bold">
           GOTM {ledger.batchNumber} <span className="font-normal text-muted">— {ledger.weekRangeLabel}</span>
         </p>
-        {ledger.complete ? (
+        {!ledger.complete ? (
+          <p className="text-sm text-muted">In progress — £{stakePot} pot riding on the batch winner.</p>
+        ) : ledger.rolledToPot ? (
+          <p className="text-sm text-muted">
+            Tied {ledger.winnerNames.length > 1 ? `(${formatWinners(ledger.winnerNames)})` : ""} — the whole £{stakePot}{" "}
+            pot was <span className="font-semibold text-foreground">rolled into the fines pot</span>.
+          </p>
+        ) : (
           <p className="text-sm text-muted">
             {ledger.winnerNames.length > 1 ? "Winners" : "Winner"}:{" "}
             <span className="font-semibold text-foreground">{formatWinners(ledger.winnerNames)}</span> — pot £{stakePot}
             {ledger.paidOut ? " (paid out)" : " (not paid out yet)"}
           </p>
-        ) : (
-          <p className="text-sm text-muted">In progress — £{stakePot} pot riding on the batch winner.</p>
         )}
       </div>
 

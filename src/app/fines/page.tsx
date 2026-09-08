@@ -35,10 +35,20 @@ export default async function FinesPage() {
       : `Pay by ${formatLondon(payBy, "EEE d MMM")}`
     : "Deadline set once the next gameweek is scheduled";
 
-  const potTotal = ledgers.reduce(
+  // Current pot: fines still owed across the group (late ones doubled).
+  const currentPot = ledgers.reduce(
     (sum, l) => sum + l.rows.filter((r) => !r.finesPaid).reduce((s, r) => s + r.finesOwed, 0),
     0,
   );
+  // Total pot: every fine levied this season (paid or not, late ones doubled)
+  // plus any GOTM pot that got tipped in after a tied batch.
+  const totalFines = ledgers.reduce(
+    (sum, l) => sum + l.rows.reduce((s, r) => s + r.finesOwed, 0),
+    0,
+  );
+  const gotmRollIn = ledgers.filter((l) => l.rolledToPot).reduce((s, l) => s + l.gotmPotTotal, 0);
+  const rollInBatches = ledgers.filter((l) => l.rolledToPot).map((l) => `GOTM ${l.batchNumber}`);
+  const totalPot = totalFines + gotmRollIn;
 
   const users = await prisma.user.findMany({
     where: { id: { in: allTimeByUser.map((r) => r.userId) } },
@@ -56,7 +66,23 @@ export default async function FinesPage() {
       <h1 className="font-display text-2xl font-bold">The Pot</h1>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="card space-y-2">
+        <div className="card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Total pot</p>
+          <p className="font-display text-5xl font-bold text-foreground">£{totalPot}</p>
+          <p className="mt-2 text-xs text-muted">
+            Every fine this season (£{totalFines}, late ones counted double)
+            {gotmRollIn > 0 && ` + £${gotmRollIn} from the split ${rollInBatches.join(" & ")}`}
+          </p>
+        </div>
+
+        <div className="card">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Current pot</p>
+          <p className="font-display text-5xl font-bold text-accent">£{currentPot}</p>
+          <p className="mt-2 text-xs text-muted">Fines still owed across the group (late ones counted double)</p>
+        </div>
+      </div>
+
+      <div className="card space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">You owe</p>
           <p className="font-display text-5xl font-bold text-danger">£{myOwed}</p>
           {myOwed > 0 && (
@@ -84,13 +110,6 @@ export default async function FinesPage() {
               })}
             </div>
           )}
-        </div>
-
-        <div className="card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Current pot</p>
-          <p className="font-display text-5xl font-bold text-accent">£{potTotal}</p>
-          <p className="mt-2 text-xs text-muted">Unpaid fines across the group (late ones counted double)</p>
-        </div>
       </div>
 
       <div className="space-y-2">
@@ -111,8 +130,14 @@ export default async function FinesPage() {
                   {l.complete ? <span className="pill-green">Done</span> : <span className="pill-amber">Live</span>}
                 </div>
                 <p className="text-xs text-muted">
-                  Pot £{l.gotmPotTotal} → {l.complete ? formatWinners(l.winnerNames) : "winner TBD"}
-                  {l.complete && l.paidOut && " · paid out"}
+                  {l.rolledToPot ? (
+                    <>Pot £{l.gotmPotTotal} → split, rolled into the pot</>
+                  ) : (
+                    <>
+                      Pot £{l.gotmPotTotal} → {l.complete ? formatWinners(l.winnerNames) : "winner TBD"}
+                      {l.complete && l.paidOut && " · paid out"}
+                    </>
+                  )}
                 </p>
                 {mine && (
                   <p className="text-xs">

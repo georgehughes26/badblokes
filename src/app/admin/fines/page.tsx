@@ -63,6 +63,29 @@ function Toggle({
   );
 }
 
+function PayoutForm({
+  seasonId,
+  batchNumber,
+  outcome,
+  label,
+}: {
+  seasonId: string;
+  batchNumber: number;
+  outcome: "winner" | "pot" | "none";
+  label: string;
+}) {
+  return (
+    <form action={setGotmPaidOut}>
+      <input type="hidden" name="seasonId" value={seasonId} />
+      <input type="hidden" name="batchNumber" value={batchNumber} />
+      <input type="hidden" name="outcome" value={outcome} />
+      <button type="submit" className="btn-secondary !px-3 !py-1.5 text-xs">
+        {label}
+      </button>
+    </form>
+  );
+}
+
 function BatchBlock({ ledger, seasonId }: { ledger: BatchLedger; seasonId: string }) {
   const stakeUnpaid = ledger.rows.filter((r) => !r.stakePaid).length;
   const finesUnpaid = ledger.rows.filter((r) => !r.finesPaid && r.finesBase > 0).length;
@@ -148,18 +171,22 @@ function BatchBlock({ ledger, seasonId }: { ledger: BatchLedger; seasonId: strin
       </div>
 
       {ledger.complete && (
-        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
           <span className="text-xs text-muted">
-            {ledger.paidOut ? "Winner has been paid the pot." : "Winner not paid the pot yet."}
+            {ledger.rolledToPot
+              ? `Split — the £${ledger.gotmPotTotal} pot was rolled into the fines pot.`
+              : ledger.paidOut
+                ? `Winner has been paid the £${ledger.gotmPotTotal} pot.`
+                : `£${ledger.gotmPotTotal} pot not settled yet.`}
           </span>
-          <form action={setGotmPaidOut}>
-            <input type="hidden" name="seasonId" value={seasonId} />
-            <input type="hidden" name="batchNumber" value={ledger.batchNumber} />
-            <input type="hidden" name="paidOut" value={(!ledger.paidOut).toString()} />
-            <button type="submit" className="btn-secondary !px-3 !py-1.5 text-xs">
-              {ledger.paidOut ? "Undo payout" : "Mark pot paid out"}
-            </button>
-          </form>
+          {ledger.paidOut || ledger.rolledToPot ? (
+            <PayoutForm seasonId={seasonId} batchNumber={ledger.batchNumber} outcome="none" label="Undo" />
+          ) : (
+            <div className="flex gap-2">
+              <PayoutForm seasonId={seasonId} batchNumber={ledger.batchNumber} outcome="winner" label="Paid to winner" />
+              <PayoutForm seasonId={seasonId} batchNumber={ledger.batchNumber} outcome="pot" label="Split — roll into pot" />
+            </div>
+          )}
         </div>
       )}
     </section>

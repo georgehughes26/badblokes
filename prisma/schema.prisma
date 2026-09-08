@@ -313,13 +313,17 @@ model GotmStakePayment {
   @@index([seasonId, batchNumber])
 }
 
-// One row = "the winner of this batch has been paid the pot". Absence = not paid out yet.
+// One row = "this batch's pot has been settled". Absence = not settled yet.
+// rolledToPot distinguishes how: false = paid to the batch winner(s);
+// true = the batch was a tie so the whole GOTM pot was tipped into the
+// fines pot instead (added to the fines Total pot — see lib/batch-settlement.ts).
 model GotmBatchPayout {
   id           String   @id @default(cuid())
   seasonId     String
   season       Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   batchNumber  Int
   paidOutAt    DateTime @default(now())
+  rolledToPot  Boolean  @default(false)
   recordedById String?
   recordedBy   User?    @relation("GotmPayoutRecorder", fields: [recordedById], references: [id])
 

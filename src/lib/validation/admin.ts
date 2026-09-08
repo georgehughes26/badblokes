@@ -75,5 +75,7 @@ export const batchFinesPaidSchema = z.object({
 export const gotmPayoutSchema = z.object({
   seasonId: z.string().min(1),
   batchNumber: z.coerce.number().int().min(1),
-  paidOut: boolFromForm,
+  // "winner" = pot paid to the batch winner(s); "pot" = tie, whole pot
+  // tipped into the fines pot; "none" = not settled yet (clears the row).
+  outcome: z.enum(["winner", "pot", "none"]),
 });
