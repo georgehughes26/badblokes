@@ -4,11 +4,12 @@ import { batchNumberForWeek, firstWeekOfBatch } from "@/lib/standings";
 import { formatLondon } from "@/lib/time";
 
 /**
- * The "pay window" nudge on the home page: the first gameweek of a GOTM
+ * The "pay window" banner on the home page: the first gameweek of a GOTM
  * batch is when the *previous* batch's fines and *this* batch's £10 stake
  * both fall due — by this gameweek's pick deadline, same as the picks
- * themselves. Shows what this player still owes; renders nothing if they're
- * square or it isn't a batch-opening gameweek.
+ * themselves. Shows what this player still owes, or an "all paid up"
+ * confirmation once they're square. Renders nothing when it isn't a
+ * batch-opening gameweek.
  */
 export async function PaymentDueBanner({
   userId,
@@ -25,21 +26,42 @@ export async function PaymentDueBanner({
   const dues = await getPlayerBatchDues(seasonId, userId);
   const thisBatch = dues.find((d) => d.batchNumber === batchNumber);
   const prevBatch = dues.find((d) => d.batchNumber === batchNumber - 1);
+  if (!thisBatch) return null;
+
+  const prevHasFines = Boolean(prevBatch && prevBatch.finesBase > 0);
 
   const items: { label: string; amount: number }[] = [];
-  if (thisBatch && !thisBatch.stakePaid) {
+  if (!thisBatch.stakePaid) {
     items.push({ label: `GOTM ${batchNumber} stake`, amount: thisBatch.stake });
   }
-  if (prevBatch && !prevBatch.finesPaid && prevBatch.finesOwed > 0) {
+  if (prevBatch && prevHasFines && !prevBatch.finesPaid) {
     items.push({
       label: `GOTM ${prevBatch.batchNumber} fines${prevBatch.finesLate ? " — doubled, late" : ""}`,
       amount: prevBatch.finesOwed,
     });
   }
-  if (items.length === 0) return null;
+
+  const deadline = thisBatch.stakeDeadline ?? prevBatch?.finesDeadline ?? null;
+  const whatWasDue =
+    prevBatch && prevHasFines
+      ? `GOTM ${batchNumber} stake and GOTM ${prevBatch.batchNumber} fines`
+      : `GOTM ${batchNumber} stake`;
+
+  if (items.length === 0) {
+    return (
+      <div className="card flex flex-col items-center gap-2 border-accent/40 bg-accent/5 py-5 text-center">
+        <p className="pill-green">All paid up</p>
+        <p className="text-xs text-muted">
+          {whatWasDue} — sorted.{" "}
+          <Link href="/fines" className="font-semibold text-foreground hover:underline">
+            The Pot &rarr;
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   const total = items.reduce((s, i) => s + i.amount, 0);
-  const deadline = thisBatch?.stakeDeadline ?? prevBatch?.finesDeadline ?? null;
 
   return (
     <div className="card space-y-3 border-warn/50 bg-warn/5">
