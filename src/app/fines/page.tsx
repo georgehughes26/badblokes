@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
-import { getBatchLedgers, getPlayerBatchDues } from "@/lib/batch-settlement";
+import { getBatchLedgers, getPlayerBatchDues, getSeasonFineTotals } from "@/lib/batch-settlement";
 import { formatWinners } from "@/lib/standings";
 import { formatLondon } from "@/lib/time";
 
@@ -9,10 +9,10 @@ export default async function FinesPage() {
   const user = await requireUser();
   const season = await prisma.season.findFirst({ where: { active: true } });
 
-  const [{ current, completed }, myDues, allTimeByUser] = await Promise.all([
+  const [{ current, completed }, myDues, seasonFineTotals] = await Promise.all([
     season ? getBatchLedgers(season.id) : Promise.resolve({ current: null, completed: [] as never[] }),
     season ? getPlayerBatchDues(season.id, user.id) : Promise.resolve([]),
-    prisma.fineLedgerEntry.groupBy({ by: ["userId"], _sum: { amount: true } }),
+    season ? getSeasonFineTotals(season.id) : Promise.resolve(new Map<string, number>()),
   ]);
 
   const ledgers = [...completed, ...(current ? [current] : [])];
@@ -51,12 +51,12 @@ export default async function FinesPage() {
   const totalPot = totalFines + gotmRollIn;
 
   const users = await prisma.user.findMany({
-    where: { id: { in: allTimeByUser.map((r) => r.userId) } },
+    where: { id: { in: [...seasonFineTotals.keys()] } },
     select: { id: true, name: true },
   });
   const nameById = new Map(users.map((u) => [u.id, u.name]));
-  const topContributors = allTimeByUser
-    .map((r) => ({ userId: r.userId, name: nameById.get(r.userId) ?? "?", total: r._sum.amount ?? 0 }))
+  const topContributors = [...seasonFineTotals.entries()]
+    .map(([userId, total]) => ({ userId, name: nameById.get(userId) ?? "?", total }))
     .filter((r) => r.total > 0)
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
@@ -162,7 +162,7 @@ export default async function FinesPage() {
 
       <div className="card space-y-1 p-0">
         <p className="px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-muted">Wall of shame</p>
-        <p className="px-4 text-xs text-muted">Total fines racked up all season</p>
+        <p className="px-4 text-xs text-muted">Total fines racked up all season (late ones counted double)</p>
         <div className="mt-1 divide-y divide-border">
           {topContributors.map((row, i) => (
             <div key={row.userId} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/prisma";
 import { getGotmBatches, getGotmWinners } from "@/lib/standings";
+import { getBatchLedgers, withDoubledFines } from "@/lib/batch-settlement";
 import { StandingsTable } from "@/components/standings-table";
 
 export default async function GotmBatchPage({ params }: { params: Promise<{ batchNumber: string }> }) {
@@ -17,6 +18,13 @@ export default async function GotmBatchPage({ params }: { params: Promise<{ batc
   const { completed } = await getGotmBatches(season.id);
   const batch = completed.find((b) => b.batchNumber === batchNum);
   if (!batch) notFound();
+
+  // Fines shown here come from Result.fineAmount, which never reflects late
+  // doubling — swap in the doubled-where-late figures from this batch's
+  // ledger, same as everywhere else fines are displayed.
+  const { completed: ledgers } = await getBatchLedgers(season.id);
+  const ledger = ledgers.find((l) => l.batchNumber === batchNum);
+  const rows = ledger ? withDoubledFines(batch.rows, ledger.rows) : batch.rows;
 
   const winners = getGotmWinners(batch.rows);
   const weekMin = Math.min(...batch.weekNumbers);
@@ -44,7 +52,7 @@ export default async function GotmBatchPage({ params }: { params: Promise<{ batc
         </p>
       </div>
 
-      <StandingsTable rows={batch.rows} currentUserId={user.id} />
+      <StandingsTable rows={rows} currentUserId={user.id} />
     </div>
   );
 }

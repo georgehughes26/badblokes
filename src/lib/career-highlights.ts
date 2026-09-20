@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { computeStandings, getGotmBatches, getGotmWinners } from "@/lib/standings";
+import { getSeasonFineTotals } from "@/lib/batch-settlement";
 
 export interface WeekRange {
   start: number;
@@ -29,7 +30,7 @@ export interface CareerHighlights {
  * back then), so this can only ever reflect app history.
  */
 export async function getPlayerCareerHighlights(userId: string): Promise<CareerHighlights> {
-  const [picks, resultsInOrder, finesAgg, seasons] = await Promise.all([
+  const [picks, resultsInOrder, seasons] = await Promise.all([
     prisma.pick.findMany({ where: { userId }, include: { team: true } }),
     prisma.result.findMany({
       where: { userId },
@@ -40,7 +41,6 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
       },
       orderBy: [{ gameweek: { season: { startDate: "asc" } } }, { gameweek: { weekNumber: "asc" } }],
     }),
-    prisma.fineLedgerEntry.aggregate({ where: { userId }, _sum: { amount: true } }),
     prisma.season.findMany({ select: { id: true } }),
   ]);
 
@@ -108,6 +108,7 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
   let gameweeksAtNumberOne = 0;
   let gameweeksInRelegationZone = 0;
   let gotmWon = 0;
+  let totalFines = 0;
   for (const season of seasons) {
     const settledGameweeks = await prisma.gameweek.findMany({
       where: { seasonId: season.id, status: "SETTLED" },
@@ -128,6 +129,11 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
     for (const batch of completed) {
       if (getGotmWinners(batch.rows).some((w) => w.userId === userId)) gotmWon += 1;
     }
+
+    // Doubled wherever a batch went late — same figure the fines page's Wall
+    // of shame shows, just totalled across every app-tracked season.
+    const seasonFineTotals = await getSeasonFineTotals(season.id);
+    totalFines += seasonFineTotals.get(userId) ?? 0;
   }
 
   return {
@@ -138,7 +144,7 @@ export async function getPlayerCareerHighlights(userId: string): Promise<CareerH
     longestLossStreakRange,
     gameweeksAtNumberOne,
     gameweeksInRelegationZone,
-    totalFines: finesAgg._sum.amount ?? 0,
+    totalFines,
     gotmWon,
   };
 }

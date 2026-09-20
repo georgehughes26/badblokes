@@ -198,6 +198,46 @@ export async function getBatchLedgers(seasonId: string): Promise<{ current: Batc
   };
 }
 
+/**
+ * Every player's total fines for a season, doubled wherever a batch went
+ * late — the one number the fines page's Wall of shame and the league
+ * table's Fines column should both show, instead of the raw pre-doubling
+ * total. Sums `finesOwed` (not `finesBase`) across every batch, paid or not.
+ */
+export async function getSeasonFineTotals(seasonId: string): Promise<Map<string, number>> {
+  const { current, completed } = await getBatchLedgers(seasonId);
+  const totals = new Map<string, number>();
+  for (const ledger of [...completed, current]) {
+    for (const row of ledger.rows) {
+      totals.set(row.userId, (totals.get(row.userId) ?? 0) + row.finesOwed);
+    }
+  }
+  return totals;
+}
+
+/**
+ * Display-only fix for a StandingRow[]-shaped table: swap each row's `fines`
+ * (summed straight from Result.fineAmount, so never reflects late doubling)
+ * for the doubled-where-late figure from a batch ledger's rows. Rows are
+ * already sorted by the time this runs, and sort order is left untouched —
+ * this only changes what number the Fines column prints.
+ */
+export function withDoubledFines<T extends { userId: string; fines: number }>(
+  rows: T[],
+  ledgerRows: Pick<BatchDueRow, "userId" | "finesOwed">[],
+): T[] {
+  const owed = new Map(ledgerRows.map((r) => [r.userId, r.finesOwed]));
+  return rows.map((r) => (owed.has(r.userId) ? { ...r, fines: owed.get(r.userId)! } : r));
+}
+
+/** Same fix as {@link withDoubledFines}, from a season-wide total rather than one batch's ledger rows. */
+export function withSeasonFineTotals<T extends { userId: string; fines: number }>(
+  rows: T[],
+  totals: Map<string, number>,
+): T[] {
+  return rows.map((r) => (totals.has(r.userId) ? { ...r, fines: totals.get(r.userId)! } : r));
+}
+
 export interface PlayerBatchDue extends BatchDueRow {
   batchNumber: number;
   weekRangeLabel: string;
