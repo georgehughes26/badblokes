@@ -159,9 +159,24 @@ model Pick {
   teamId            String
   team              Team     @relation(fields: [teamId], references: [id])
   isJoker           Boolean  @default(false)
+  // True when the joker was forced onto this pick as a penalty (eats the
+  // player's joker allowance for the half via the usual isJoker=true
+  // counting in lib/jokers.ts) rather than freely chosen — so a win still
+  // only scores a normal 1pt, not the usual 2x. Breach/fine computation
+  // (the £10 "joker played and lost" fine on an actual loss) is untouched —
+  // see computePoints in lib/rules.ts, the only place this is read.
+  jokerDoublingDisabled Boolean @default(false)
   createdAt         DateTime @default(now()) // server timestamp — decides first-come-first-served
   overriddenByAdmin Boolean  @default(false)
   overrideReason    String?
+  // When set, this gameweek's fine is forced to this flat amount/reason
+  // regardless of what the rules engine computes from the actual result —
+  // e.g. a flat disciplinary fine unrelated to match outcome. Null = no
+  // override, normal rules apply. Never overrides points or breach flags,
+  // only fineAmount/fineReason on the eventual Result + FineLedgerEntry —
+  // see /api/admin/results/route.ts, the only place this is read.
+  fineOverrideAmount Int?
+  fineOverrideReason String?
 
   // Admin-entered once games are done. Null until results are in. Combined
   // (either true = "won" for the rules engine) — kept separate so the UI can

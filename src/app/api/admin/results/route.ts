@@ -52,10 +52,18 @@ export async function POST(request: Request) {
       const outcome = settlePlayerGameweek({
         hasPick: true,
         isJoker: pick.isJoker,
+        jokerDoublingDisabled: pick.jokerDoublingDisabled,
         shortOdds: fact.shortOdds,
         slipSubmitted: fact.slipSubmitted,
         won: fact.won || fact.wentTwoUp,
       });
+      // A flat admin-forced fine for this pick (e.g. a disciplinary fine
+      // unrelated to the match outcome) overrides only the fine, never
+      // points or breach flags — see the Pick.fineOverrideAmount comment.
+      const fine =
+        pick.fineOverrideAmount != null
+          ? { ruleId: outcome.fine.ruleId, amount: pick.fineOverrideAmount, reason: pick.fineOverrideReason ?? outcome.fine.reason }
+          : outcome.fine;
 
       await tx.pick.update({
         where: { id: pick.id },
@@ -85,9 +93,9 @@ export async function POST(request: Request) {
           breachShortOdds: outcome.breaches.shortOdds,
           breachTeamLost: outcome.breaches.teamLost,
           breachJokerLost: outcome.breaches.jokerLost,
-          fineAmount: outcome.fine.amount,
-          fineRuleId: outcome.fine.ruleId,
-          fineReason: outcome.fine.reason,
+          fineAmount: fine.amount,
+          fineRuleId: fine.ruleId,
+          fineReason: fine.reason,
           jokerPlayed: outcome.jokerPlayed,
         },
         update: {
@@ -97,19 +105,19 @@ export async function POST(request: Request) {
           breachShortOdds: outcome.breaches.shortOdds,
           breachTeamLost: outcome.breaches.teamLost,
           breachJokerLost: outcome.breaches.jokerLost,
-          fineAmount: outcome.fine.amount,
-          fineRuleId: outcome.fine.ruleId,
-          fineReason: outcome.fine.reason,
+          fineAmount: fine.amount,
+          fineRuleId: fine.ruleId,
+          fineReason: fine.reason,
           jokerPlayed: outcome.jokerPlayed,
           computedAt: new Date(),
         },
       });
 
-      if (outcome.fine.amount > 0) {
+      if (fine.amount > 0) {
         await tx.fineLedgerEntry.upsert({
           where: { gameweekId_userId: { gameweekId, userId: pick.userId } },
-          create: { gameweekId, userId: pick.userId, amount: outcome.fine.amount, reason: outcome.fine.reason },
-          update: { amount: outcome.fine.amount, reason: outcome.fine.reason },
+          create: { gameweekId, userId: pick.userId, amount: fine.amount, reason: fine.reason },
+          update: { amount: fine.amount, reason: fine.reason },
         });
       } else {
         await tx.fineLedgerEntry.deleteMany({ where: { gameweekId, userId: pick.userId } });

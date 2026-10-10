@@ -59,6 +59,15 @@ export interface PlayerGameweekInput {
   /** Was this pick the player's joker? Must be false when hasPick is false. */
   isJoker: boolean;
   /**
+   * When isJoker is true but this is set, a win still scores a normal 1pt,
+   * not the usual 2x — used when a joker was forced onto a pick as a
+   * penalty (still eats the player's allowance for the half, still carries
+   * the normal £10 "joker played and lost" fine if it loses) rather than
+   * freely chosen. Ignored when isJoker is false. Defaults to false (joker
+   * doubles normally) when omitted.
+   */
+  jokerDoublingDisabled?: boolean;
+  /**
    * Were this pick's odds shorter than the legal minimum (1/2)? A manual
    * admin call at results entry — always false when hasPick is false.
    */
@@ -230,7 +239,8 @@ function computePoints(
     return config.pointsMultiBreachPenalty;
   }
   if (input.won) {
-    return input.isJoker ? config.pointsJokerWin : config.pointsWin;
+    const doublesPoints = input.isJoker && !input.jokerDoublingDisabled;
+    return doublesPoints ? config.pointsJokerWin : config.pointsWin;
   }
   return 0;
 }

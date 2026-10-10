@@ -10,6 +10,11 @@ export interface ResultsEntryPick {
   userName: string;
   teamName: string;
   isJoker: boolean;
+  /** Joker forced on as a penalty — a win won't double. See Pick.jokerDoublingDisabled. */
+  jokerDoublingDisabled: boolean;
+  /** Flat admin-forced fine for this gameweek, overriding whatever the rules engine computes. See Pick.fineOverrideAmount. */
+  fineOverrideAmount: number | null;
+  fineOverrideReason: string | null;
   slipSubmitted: boolean;
   slipUrl: string | null;
   won: boolean;
@@ -32,13 +37,23 @@ interface PickFactState {
   shortOdds: boolean;
 }
 
-function toInput(fact: PickFactState, isJoker: boolean): PlayerGameweekInput {
+function toInput(fact: PickFactState, isJoker: boolean, jokerDoublingDisabled: boolean): PlayerGameweekInput {
   return {
     hasPick: true,
     isJoker,
+    jokerDoublingDisabled,
     shortOdds: fact.shortOdds,
     slipSubmitted: fact.slipSubmitted,
     won: fact.won || fact.wentTwoUp,
+  };
+}
+
+/** Mirrors the server's fine-override step (api/admin/results/route.ts) so the preview matches what Save will actually write. */
+function applyFineOverride(outcome: SettlementOutcome, pick: ResultsEntryPick): SettlementOutcome {
+  if (pick.fineOverrideAmount == null) return outcome;
+  return {
+    ...outcome,
+    fine: { ruleId: outcome.fine.ruleId, amount: pick.fineOverrideAmount, reason: pick.fineOverrideReason ?? outcome.fine.reason },
   };
 }
 
@@ -85,7 +100,7 @@ export function ResultsEntryForm({
     const result: Array<{ userId: string; userName: string; teamName: string | null; outcome: SettlementOutcome }> = [];
     for (const pick of picks) {
       const fact = facts[pick.pickId];
-      const outcome = settlePlayerGameweek(toInput(fact, pick.isJoker));
+      const outcome = applyFineOverride(settlePlayerGameweek(toInput(fact, pick.isJoker, pick.jokerDoublingDisabled)), pick);
       result.push({ userId: pick.userId, userName: pick.userName, teamName: pick.teamName, outcome });
     }
     for (const player of noPickPlayers) {
@@ -127,8 +142,17 @@ export function ResultsEntryForm({
               <div key={pick.pickId} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-center">
                 <div>
                   <p className="text-sm font-semibold">
-                    {pick.userName} → {pick.teamName} {pick.isJoker && <span className="pill-amber ml-1">Joker</span>}
+                    {pick.userName} → {pick.teamName}{" "}
+                    {pick.isJoker && (
+                      <span className="pill-amber ml-1">{pick.jokerDoublingDisabled ? "Joker (no double)" : "Joker"}</span>
+                    )}
                   </p>
+                  {pick.fineOverrideAmount != null && (
+                    <p className="text-xs text-danger">
+                      Fine fixed at £{pick.fineOverrideAmount}
+                      {pick.fineOverrideReason && ` — ${pick.fineOverrideReason}`}
+                    </p>
+                  )}
                   {pick.slipUrl && (
                     <a
                       href={pick.slipUrl}

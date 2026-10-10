@@ -127,6 +127,21 @@ describe("settlePlayerGameweek — truth table (spec §1)", () => {
     expect(out.fine.ruleId).toBe("JOKER_LOST");
   });
 
+  it("joker with doubling disabled, team won -> +1 not +2, still counts as joker played", () => {
+    const out = settlePlayerGameweek(input({ isJoker: true, jokerDoublingDisabled: true, won: true }));
+    expect(out.points).toBe(1);
+    expect(out.fine.amount).toBe(0);
+    expect(out.jokerPlayed).toBe(true);
+  });
+
+  it("joker with doubling disabled, team lost -> still the normal £10 joker-lost fine", () => {
+    const out = settlePlayerGameweek(input({ isJoker: true, jokerDoublingDisabled: true, won: false }));
+    expect(out.breaches.jokerLost).toBe(true);
+    expect(out.points).toBe(0);
+    expect(out.fine.amount).toBe(10);
+    expect(out.fine.ruleId).toBe("JOKER_LOST");
+  });
+
   it("joker, no slip, legal odds, team lost -> B+E, 0 pts, £10 (not £15)", () => {
     const out = settlePlayerGameweek(
       input({ isJoker: true, slipSubmitted: false, won: false }),
