@@ -269,6 +269,12 @@ model FineLedgerEntry {
   gameweek     Gameweek  @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
   amount       Int
   reason       String
+  // True for a flat disciplinary fine (e.g. the standing "a -1 points
+  // penalty comes with a £10 fine" rule) that should always count at face
+  // value — never 2x'd for being paid late the way an ordinary
+  // per-gameweek match fine is. See lib/batch-settlement.ts buildLedger,
+  // the only place this is read.
+  exemptFromLateDoubling Boolean @default(false)
   paid         Boolean   @default(false)
   paidAt       DateTime?
   recordedById String?

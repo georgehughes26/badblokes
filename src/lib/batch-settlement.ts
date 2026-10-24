@@ -14,11 +14,11 @@ export interface BatchDueRow {
   /** GOTM entry stake for this batch — always GOTM_STAKE. */
   stake: number;
   stakePaid: boolean;
-  /** This batch's accumulated fines at face value. */
+  /** This batch's accumulated fines at face value — ordinary + any flat exempt ones (see finesOwed). */
   finesBase: number;
-  /** True when the fines deadline has passed with the fines unpaid (or they were paid after it) — finesOwed is then doubled. */
+  /** True when the fines deadline has passed with the (non-exempt) fines unpaid, or they were paid after it — only the non-exempt portion of finesOwed is then doubled. */
   finesLate: boolean;
-  /** What's actually owed for fines: finesBase, or 2x once late. */
+  /** What's actually owed: ordinary fines doubled once late, plus any flat exemptFromLateDoubling fines always at face value. */
   finesOwed: number;
   finesPaid: boolean;
   /** stake still owed + fines still owed. */
@@ -52,7 +52,7 @@ interface Ctx {
   weeksById: Map<string, number>;
   pickDeadlineByWeek: Map<number, Date>;
   resultUserIdsByWeek: Map<number, Set<string>>;
-  finesByUserWeek: Map<string, { amount: number; paid: boolean; paidAt: Date | null }>;
+  finesByUserWeek: Map<string, { amount: number; paid: boolean; paidAt: Date | null; exempt: boolean }>;
   stakePaidByKey: Map<string, boolean>;
   payoutBatches: Set<number>;
   rolledToPotBatches: Set<number>;
@@ -73,7 +73,14 @@ async function loadCtx(seasonId: string): Promise<Ctx> {
     }),
     prisma.fineLedgerEntry.findMany({
       where: { gameweek: { seasonId } },
-      select: { userId: true, amount: true, paid: true, paidAt: true, gameweek: { select: { weekNumber: true } } },
+      select: {
+        userId: true,
+        amount: true,
+        paid: true,
+        paidAt: true,
+        exemptFromLateDoubling: true,
+        gameweek: { select: { weekNumber: true } },
+      },
     }),
     prisma.gotmStakePayment.findMany({ where: { seasonId }, select: { batchNumber: true, userId: true, paid: true } }),
     prisma.gotmBatchPayout.findMany({ where: { seasonId }, select: { batchNumber: true, rolledToPot: true } }),
@@ -90,9 +97,14 @@ async function loadCtx(seasonId: string): Promise<Ctx> {
     resultUserIdsByWeek.set(r.gameweek.weekNumber, set);
   }
 
-  const finesByUserWeek = new Map<string, { amount: number; paid: boolean; paidAt: Date | null }>();
+  const finesByUserWeek = new Map<string, { amount: number; paid: boolean; paidAt: Date | null; exempt: boolean }>();
   for (const f of fines) {
-    finesByUserWeek.set(keyUW(f.userId, f.gameweek.weekNumber), { amount: f.amount, paid: f.paid, paidAt: f.paidAt });
+    finesByUserWeek.set(keyUW(f.userId, f.gameweek.weekNumber), {
+      amount: f.amount,
+      paid: f.paid,
+      paidAt: f.paidAt,
+      exempt: f.exemptFromLateDoubling,
+    });
   }
 
   const stakePaidByKey = new Map(stakes.map((s) => [`${s.batchNumber}:${s.userId}`, s.paid]));
@@ -147,20 +159,30 @@ function buildLedger(batch: GotmBatch, ctx: Ctx): BatchLedger {
     .map(({ id, name }) => {
       const stakePaid = ctx.stakePaidByKey.get(`${batch.batchNumber}:${id}`) ?? false;
 
+      // finesBase is everything at face value (ordinary + exempt). Only the
+      // ordinary (non-exempt) portion ever doubles for being late — a flat
+      // disciplinary fine (exemptFromLateDoubling) always counts at face
+      // value, tracked separately below so it can't get swept into the 2x.
       let finesBase = 0;
+      let doubleableBase = 0;
       let finesPaid = true;
-      let paidAnyLate = false;
+      let doubleablePaid = true;
+      let paidAnyLateDoubleable = false;
       for (const w of batchWeeks) {
         const entry = ctx.finesByUserWeek.get(keyUW(id, w));
         if (!entry) continue;
         finesBase += entry.amount;
         if (!entry.paid) finesPaid = false;
-        else if (finesDeadline && entry.paidAt && entry.paidAt.getTime() > finesDeadline.getTime()) paidAnyLate = true;
+        if (!entry.exempt) {
+          doubleableBase += entry.amount;
+          if (!entry.paid) doubleablePaid = false;
+          else if (finesDeadline && entry.paidAt && entry.paidAt.getTime() > finesDeadline.getTime()) paidAnyLateDoubleable = true;
+        }
       }
       if (finesBase === 0) finesPaid = true;
 
-      const finesLate = finesBase > 0 && ((!finesPaid && finesPastDeadline) || paidAnyLate);
-      const finesOwed = finesLate ? finesBase * 2 : finesBase;
+      const finesLate = doubleableBase > 0 && ((!doubleablePaid && finesPastDeadline) || paidAnyLateDoubleable);
+      const finesOwed = finesLate ? doubleableBase * 2 + (finesBase - doubleableBase) : finesBase;
 
       const outstanding = (stakePaid ? 0 : GOTM_STAKE) + (finesPaid ? 0 : finesOwed);
 
